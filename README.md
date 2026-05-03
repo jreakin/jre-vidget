@@ -17,7 +17,7 @@ and any HLS/Brightcove stream.
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (package manager)
 - [ffmpeg](https://ffmpeg.org/) — required for format conversion and HLS stream merging
 
@@ -39,7 +39,32 @@ Or manually:
 uv sync --extra dev
 ```
 
+With pip (editable install and dev tools):
+
+```bash
+pip install -e ".[dev]"
+```
+
 ## Usage
+
+**Phase 1 (scaffold):** a single stub command accepts a URL and prints a placeholder message.
+
+```bash
+vidget --help
+vidget https://example.com
+```
+
+**Planned CLI surface** (later phases):
+
+```bash
+vidget <url>
+vidget batch <file>
+vidget formats <url>
+vidget config show
+vidget config set --output ~/Videos --quality 1080p --format mp4
+```
+
+Examples after the Typer CLI is fully wired (see `prompts/phase-4-typer-cli/`):
 
 ```bash
 # Download a video (best quality, mp4)

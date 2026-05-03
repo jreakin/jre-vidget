@@ -40,13 +40,15 @@ jre-vidget/
 │   ├── unit/         # Pure unit tests (no network, no real yt-dlp)
 │   └── integration/  # Full-stack tests with mocked yt-dlp
 ├── prompts/          # Phase-build prompts for AI coding agents
-│   ├── phase-1-project-scaffold.md
-│   ├── phase-2-pydantic-models.md
-│   ├── phase-3-download-engine.md
-│   ├── phase-4-typer-cli.md
-│   ├── phase-5-rich-ui.md
-│   └── phase-6-config-error-polish.md
-└── docs/adr/         # AI Decision Records
+│   ├── phase-1-project-scaffold/
+│   ├── phase-2-pydantic-models/
+│   ├── phase-3-download-engine/
+│   ├── phase-4-typer-cli/
+│   ├── phase-5-rich-ui/
+│   └── phase-6-config-error-polish/
+├── docs/adr/         # AI Decision Records
+├── SKILL.md          # Agent workflow guide (capabilities, exit codes, JSON shapes)
+└── Makefile          # Standard dev entrypoints (make test, make lint, make install)
 ```
 
 ---
@@ -96,6 +98,99 @@ uv run mypy src/ --strict        # Type check
   / `model_validate_json` for serialization.
 - **Entry point:** `vidget = "jre_vidget.cli:app"` in pyproject.toml. The `app` object
   is the Typer application instance.
+
+---
+
+## Agentic CLI Design Principles
+
+jre-vidget is a CLI tool designed to be invoked by AI coding agents as well as humans.
+The following requirements are non-negotiable for agent compatibility.
+
+### Exit Codes
+
+Every command must exit with a meaningful code. Agents use exit codes for retry logic
+and branching — never exit with a non-zero code for a success condition.
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | General / unexpected failure |
+| `2` | Usage / argument error (Typer handles this automatically) |
+| `3` | Authentication / permission error |
+| `4` | Transient error — safe to retry (network timeout, rate limit) |
+| `5` | Conflict — file already exists and `--no-overwrite` is set |
+| `130` | Interrupted by Ctrl-C (SIGINT) |
+
+These codes are the **primary control flow mechanism** for agents. Map every error path
+to the correct code.
+
+### `--json` Flag — Machine-Readable Output
+
+Every command that produces data output must support `--json`:
+
+```python
+# In cli.py — every data command follows this pattern
+@app.command()
+def download(url: str, ..., json_output: bool = typer.Option(False, "--json")):
+    result = engine.download(config)
+    if json_output:
+        # stdout = pure JSON only — no Rich decorations
+        print(result.model_dump_json())
+    else:
+        # stderr = progress/spinners (Rich goes to stderr via Console(stderr=True))
+        # stdout = human-readable Rich output
+        ui.print_result(result)
+```
+
+**API contract:** `stdout = data only; stderr = logs, progress, warnings`
+
+When `--json` is active: Rich spinners and progress bars go to `stderr`
+(use `Console(stderr=True)` for progress output), and `stdout` contains only the JSON
+payload. This separation is what makes `vidget download URL --json | jq .status` work.
+
+### Non-Interactive Mode / TTY Detection
+
+Agents cannot respond to confirmation prompts. All write/destructive commands must:
+- Accept `--yes` / `--no-confirm` to skip confirmation
+- Auto-detect non-TTY (`sys.stdin.isatty()`) and skip prompts automatically
+- Error immediately with clear missing-flag message if required args absent in headless mode
+
+```python
+import sys
+
+def _is_headless() -> bool:
+    return not sys.stdin.isatty()
+
+# In commands that prompt:
+if not yes and not _is_headless():
+    confirm = typer.confirm("Overwrite existing file?")
+    if not confirm:
+        raise typer.Exit(0)
+elif not yes and _is_headless():
+    # headless with no --yes: proceed (for non-destructive) or abort (for destructive)
+    pass
+```
+
+### Command Grammar
+
+Use **noun → verb** hierarchy consistently — agents recognize this pattern from tools
+like `gh pr create`, `kubectl pod get`, and `docker container ls`:
+
+```
+vidget download <url>          # not: vidget get-video
+vidget batch <file>            # not: vidget batch-download
+vidget config show             # not: vidget show-config
+vidget config set <k> <v>      # not: vidget set-config
+vidget config reset            # not: vidget reset-config
+```
+
+### Self-Documenting Help
+
+Every command must have:
+- A clear one-line description (used by agents during discovery)
+- Required vs. optional flags labeled explicitly
+- At least one realistic `--help` example using `rich_help_panel` or epilog
+- The `--json` flag documented in every command's help text
 
 ---
 
