@@ -3,6 +3,7 @@ Rich terminal UI — spinner, progress bar, tables, panels.
 
 See prompts/phase-5-rich-ui/current.md for the full implementation spec.
 """
+<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
 
 from __future__ import annotations
 
@@ -10,6 +11,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+||||||| Common ancestor
+# TODO: implement per phase-5-rich-ui.md
+=======
+
+from __future__ import annotations
+>>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 
 from rich.console import Console
 from rich.panel import Panel
@@ -322,6 +329,37 @@ def print_success(message: str) -> None:
     console.print(f"[green]{message}[/green]")
 
 
+<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
 def print_batch_intro(count: int) -> None:
     """Announce how many URLs were read for batch."""
     console.print(f"Found {count} URL(s)")
+||||||| Common ancestor
+console = Console()
+=======
+from jre_vidget.engine import ProgressData, ProgressHook
+from jre_vidget.models import DownloadResult, DownloadStatus
+
+console = Console()
+
+
+def make_progress_hook() -> ProgressHook:
+    """Minimal yt-dlp progress hook; Phase 5 replaces with a Rich progress bar."""
+
+    err_console = Console(stderr=True)
+
+    def hook(d: ProgressData) -> None:
+        if d.get("status") == "finished" and d.get("filename"):
+            err_console.print(f"Finished: {d['filename']}", highlight=False)
+
+    return hook
+
+
+def print_result(result: DownloadResult) -> None:
+    """One-line result for batch downloads (CLI delegates here)."""
+    if result.status == DownloadStatus.SUCCESS:
+        path = result.filepath if result.filepath is not None else "?"
+        console.print(f"[green]OK[/green] {result.url} → {path}")
+    else:
+        err = result.error or "unknown error"
+        console.print(f"[red]FAIL[/red] {result.url}: {err}")
+>>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
