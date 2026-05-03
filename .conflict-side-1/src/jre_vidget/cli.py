@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import TypeVar
 
 import typer
 
-from jre_vidget import engine, ui
+from jre_vidget import checks, engine, models, ui
 from jre_vidget.models import (
     AppConfig,
     BatchJob,
@@ -27,6 +28,28 @@ config_app = typer.Typer(help="View or edit default settings.")
 app.add_typer(config_app, name="config")
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"vidget {pkg_version('jre-vidget')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Global options; runs before every subcommand."""
+    if ctx.invoked_subcommand != "config":
+        checks.check_dependencies()
+
+
 T = TypeVar("T")
 
 
@@ -44,6 +67,16 @@ def _read_batch_urls(path: Path) -> list[str]:
             continue
         urls.append(s)
     return urls
+
+
+def _validate_output(path: Path) -> Path:
+    """Ensure the path exists or can be created, and is writable."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        ui.print_error(f"Cannot write to {path}", "Check directory permissions.")
+        raise typer.Exit(code=1) from None
+    return path
 
 
 @app.command()
@@ -73,7 +106,7 @@ def download(
     cfg = AppConfig.load()
     resolved_quality = _resolve(quality, cfg.quality)
     resolved_format = _resolve(out_format, cfg.format)
-    resolved_output = _resolve(output, cfg.output_dir)
+    resolved_output = _validate_output(_resolve(output, cfg.output_dir))
     resolved_subs = subs if subs else cfg.subtitles
 
     dl_cfg = DownloadConfig(
@@ -88,6 +121,9 @@ def download(
     try:
         with progress_ctx:
             result = engine.download(dl_cfg, progress_hook=hook)
+    except KeyboardInterrupt:
+        ui.print_error("Download cancelled.", "Ctrl-C received.")
+        raise typer.Exit(code=130) from None
     except engine.EngineError as e:
         ui.print_error("Error", str(e))
         raise typer.Exit(code=1) from e
@@ -116,17 +152,22 @@ def batch(
     ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
+    out_dir = _validate_output(_resolve(output, cfg.output_dir))
     base = DownloadConfig(
         url="",
         quality=_resolve(quality, cfg.quality),
         format=_resolve(out_format, cfg.format),
-        output_dir=_resolve(output, cfg.output_dir),
+        output_dir=out_dir,
         subtitles=subs if subs else cfg.subtitles,
     )
     job = BatchJob(urls=urls, config=base)
     hook, progress_ctx = ui.make_progress_hook()
-    with progress_ctx:
-        engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
+    try:
+        with progress_ctx:
+            engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
+    except KeyboardInterrupt:
+        ui.print_error("Download cancelled.", "Ctrl-C received.")
+        raise typer.Exit(code=130) from None
 
     ui.print_batch_summary(job)
 
@@ -188,3 +229,17 @@ def config_set(
 
     cfg.save()
     ui.print_success("Updated: " + ", ".join(changed))
+
+
+@config_app.command("reset")
+def config_reset(
+    yes: bool = typer.Option(False, "--yes", help="Skip confirmation prompt"),
+) -> None:
+    """Reset all settings to defaults."""
+    if not yes and not typer.confirm("Reset all config to defaults?", default=False):
+        raise typer.Exit(code=0)
+
+    if models.CONFIG_PATH.exists():
+        models.CONFIG_PATH.unlink()
+
+    ui.print_success("✅ Config reset.")
