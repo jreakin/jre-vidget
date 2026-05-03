@@ -80,4 +80,9 @@ uv.lock
 *.aac
 *.wav
 *.flac
+<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
 >>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
+||||||| Common ancestor
+=======
+.gitnexus
+>>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI

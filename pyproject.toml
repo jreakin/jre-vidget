@@ -37,6 +37,7 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
+<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
 [tool.ruff.lint.per-file-ignores]
 # Typer uses Option()/Argument() in parameter defaults by design.
 "src/jre_vidget/cli.py" = ["B008"]
@@ -57,6 +58,21 @@ replace-imports-with-any = [
     "google_auth_oauthlib.**",
     "google_auth_httplib2.**",
 ]
+||||||| Common ancestor
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+=======
+[tool.ruff.lint.per-file-ignores]
+# Typer uses Option()/Argument() in parameter defaults by design.
+"src/jre_vidget/cli.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+>>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
