@@ -74,13 +74,38 @@ After exhausting retries, returns `DownloadResult(status=FAILED, error=...)` —
 
 ## Error Handling
 
-| Error Type | Handler |
-|------------|---------|
-| Missing yt-dlp | `checks.py` → print install hint → exit(1) |
-| Missing ffmpeg | `checks.py` → print warning (non-fatal) |
-| Download failure | `engine.download()` → retry → `DownloadResult(FAILED)` |
-| Bad output path | `_validate_output()` in cli.py → `ui.print_error()` → exit(1) |
-| Ctrl-C | `KeyboardInterrupt` handler in cli.py → exit(130) |
+| Error Type | Handler | Exit Code |
+|------------|---------|-----------|
+| Missing yt-dlp | `checks.py` → print install hint → exit | `1` |
+| Missing ffmpeg | `checks.py` → print warning (non-fatal) | `0` |
+| Download failure (permanent) | `engine.download()` → retry → `DownloadResult(FAILED)` | `1` |
+| Download failure (transient / timeout) | `engine.download()` → retry exhausted | `4` |
+| Auth / permission error | `engine.download()` → `DownloadResult(FAILED, auth_error=True)` | `3` |
+| File already exists + `--no-overwrite` | `cli.py` conflict check | `5` |
+| Bad output path | `_validate_output()` in cli.py → `ui.print_error()` | `1` |
+| Bad arguments / missing flags | Typer automatic | `2` |
+| Ctrl-C | `KeyboardInterrupt` handler in cli.py | `130` |
+
+## Output Mode
+
+`vidget` supports two output modes, selected per-command with `--json`:
+
+| Mode | stdout | stderr |
+|------|--------|--------|
+| Human (default) | Rich-formatted text | structlog / warnings |
+| Machine (`--json`) | Pure JSON (one object) | Rich progress + structlog |
+
+The `Console(stderr=True)` instance in `ui.py` handles all progress/spinner output so
+that piping `vidget ... --json` always produces parse-clean stdout.
+
+JSON response shape:
+```json
+// success
+{"ok": true, "schemaVersion": 1, "data": {...}}
+
+// failure  
+{"ok": false, "schemaVersion": 1, "error": {"code": "download_failed", "message": "...", "retryable": false}}
+```
 
 ## AI Decision Records
 

@@ -6,7 +6,7 @@ patterns are discovered.
 ```
 Created: 2026-05-03
 Last Updated: 2026-05-03
-Total Signs: 5
+Total Signs: 7
 ```
 
 ---
@@ -129,6 +129,42 @@ Stop and ask a human immediately when:
 - Unsure which phase prompt to implement next
 - A dependency needs to be added that isn't in the phase spec
 - Any operation would touch files outside the declared Write scope
+
+---
+
+## SIGN #6: Rich Output Leaking to stdout When --json Active
+
+**Trigger:** About to call `console.print(...)` or `ui.*()` on the normal `stdout` console
+when the command was invoked with `--json`
+
+**Instruction:**
+1. Rich progress/spinner output must go to **stderr** — instantiate `Console(stderr=True)`
+   for all non-data output in `ui.py`
+2. When `--json` is active, `stdout` must contain **only** valid JSON — nothing else
+3. Test: `vidget download URL --json | python3 -m json.tool` must succeed (no parse errors)
+
+**Reason:** AI agents pipe `--json` output directly into parsers. Any stray Rich markup or
+progress text on stdout causes `json.loads()` to throw, breaking the agent's workflow.
+
+**Provenance:** CLI Best Practices for AI Agents (Notion) — Principle 1 (stdout/stderr split)
+
+---
+
+## SIGN #7: Non-Semantic or Missing Exit Code
+
+**Trigger:** A command exits with `sys.exit(1)` or `raise typer.Exit(1)` for an error that
+has a more specific code in the exit code table (codes 2–5, 130)
+
+**Instruction:**
+1. Check the exit code table in AGENTS.md → Agentic CLI Design Principles
+2. Map the error to its specific code: auth=3, transient/retry=4, conflict=5, sigint=130
+3. Never use exit code `1` when a more specific code applies
+4. Ensure the structured JSON error on stdout includes a matching `"code"` field when `--json` is active
+
+**Reason:** Agents use exit codes as their primary branching mechanism. A generic `1` on a
+rate-limit error prevents the agent from applying correct retry logic.
+
+**Provenance:** CLI Best Practices for AI Agents (Notion) — Principle 3 (semantic exit codes)
 
 ---
 
