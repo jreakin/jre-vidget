@@ -1,13 +1,40 @@
+<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 """Typer CLI — delegates to engine; display via Rich in ui.py."""
+||||||| Common ancestor
+"""
+Typer CLI entry point — vidget download / batch / formats / config.
+=======
+import typer
+from rich.console import Console
+>>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
 
+<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 from __future__ import annotations
 
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import TypeVar
+||||||| Common ancestor
+See prompts/phase-4-typer-cli.md for the full implementation spec.
+"""
+# TODO: implement per phase-4-typer-cli.md
+=======
+app = typer.Typer(
+    name="vidget",
+    help="🎬  Download & convert videos from 1000+ sites.",
+    add_completion=False,
+)
+console = Console()
 
-import typer
 
+@app.command()
+def download(url: str = typer.Argument(..., help="Video URL to download")) -> None:
+    """Download a single video."""
+    console.print(f"[bold green]Phase 1 stub:[/] would download {url}")
+>>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
+
+
+<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 from jre_vidget import checks, engine, models, ui
 from jre_vidget.models import (
     AppConfig,
@@ -243,3 +270,9 @@ def config_reset(
         models.CONFIG_PATH.unlink()
 
     ui.print_success("✅ Config reset.")
+||||||| Common ancestor
+app = typer.Typer(name="vidget", no_args_is_help=True)
+=======
+if __name__ == "__main__":
+    app()
+>>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes

@@ -1,4 +1,4 @@
-# ADR-005: Railway + Docker Deployment
+# ADR-005: Dockerized CLI Tool
 
 **Date:** 2026-05-03
 **Status:** Accepted
@@ -9,72 +9,65 @@
 ## Context
 
 jre-vidget was designed as a local macOS CLI tool replacing iTube Studio. The goal is to
-run downloads without being at the Mac — triggered from a phone, browser, or script.
+make it portable — usable from other projects via `git clone` without requiring Python,
+yt-dlp, or ffmpeg to be installed on the host.
 
-**Rejected alternatives:**
-
-| Option | Why rejected |
-|--------|-------------|
-| Cloudflare Workers | V8 JS/WASM isolates only — no Python, no subprocess, no ffmpeg |
-| Google Cloud Functions | Same constraints; 9-minute max — insufficient for large videos |
-| Google Cloud Run | Viable but requires async job queue design and GCS for storage |
-
-Railway was chosen because it runs persistent Docker containers (not serverless), supports
-long-running processes, provides persistent volumes, and has a simple deploy-from-Dockerfile
-workflow with no platform-specific SDK.
+**Rejected approach:** wrapping the engine in a FastAPI HTTP server and deploying to
+Railway. This added HTTP indirection, a job-polling workflow, and ongoing server costs
+for what is fundamentally a command-line tool. The right tool for shell-script and
+Makefile integration is a CLI, not an API.
 
 ---
 
 ## Decision
 
-Deploy jre-vidget as a Docker container on Railway with a thin FastAPI HTTP API
-(`src/jre_vidget/server.py`) layered on top of the existing engine.
+Ship jre-vidget as a self-contained Docker image with `ENTRYPOINT ["vidget"]`.
 
-The CLI layer (`cli.py`) is unchanged and continues to work for local macOS use.
-The server is opt-in via a `[server]` extras group in `pyproject.toml`.
+The image bundles Python 3.12, yt-dlp, and ffmpeg. Callers mount a host directory
+at `/downloads` and pass CLI arguments directly — no HTTP, no polling, no server.
 
 ---
 
-## API Design
+## Usage Pattern
 
-Downloads take longer than HTTP timeouts, so the server uses the async job pattern:
+```bash
+# Clone once
+git clone https://github.com/jreakin/jre-vidget
 
+# Build once
+docker build -t jre-vidget jre-vidget/
+
+# Use anywhere — same flags as the native CLI
+docker run --rm -v ~/Downloads:/downloads jre-vidget download "URL" --output /downloads
+docker run --rm -v ~/Downloads:/downloads jre-vidget batch urls.txt --output /downloads
+docker run --rm jre-vidget formats "URL" --json
 ```
-POST /download      →  202 Accepted  { job_id: "uuid" }
-GET  /jobs/{id}     →  200           { status: "pending|running|done|failed", filename? }
-GET  /files/{name}  →  200           (file stream)
-GET  /health        →  200           { ok: true }
+
+## Integration in Other Projects
+
+Two integration options are provided in `bin/`:
+
+**`bin/vidget`** — shell wrapper script. Symlink or copy to PATH:
+```bash
+ln -s /path/to/jre-vidget/bin/vidget /usr/local/bin/vidget
+vidget download "URL" --output ~/Downloads
 ```
 
-Optional API key auth via `VIDGET_API_KEY` env var + `X-Api-Key` request header.
+**`bin/vidget.mk`** — Makefile include for project-level integration:
+```makefile
+VIDGET_DIR := /path/to/jre-vidget
+include $(VIDGET_DIR)/bin/vidget.mk
 
----
-
-## File Storage
-
-Files are written to `/downloads` inside the container, backed by a Railway persistent
-volume (configured in the Railway dashboard after first deploy).
-
-Files are **not** uploaded to S3/GCS — keeps the implementation dependency-free.
-Adding S3 upload support later is straightforward: replace `FileResponse` with a
-presigned-URL redirect in `GET /files/{filename}`.
-
----
-
-## Job Store
-
-In-memory Python dict. Adequate for single-instance Railway deployment.
-Jobs are lost on container restart; files on the volume persist.
-
-If multi-instance or job durability is needed later, the store can be swapped for
-Redis (one dependency + env var change in `server.py`).
+download:
+    make vidget-download URL="https://..." OUTPUT=./media
+```
 
 ---
 
 ## Consequences
 
-- Single-instance only (in-memory job store)
-- Files persist across restarts via Railway volume mount at `/downloads`
-- No S3/GCS dependency — simpler ops
-- The CLI tool continues to work identically for local use
-- `httpx` added to dev extras for FastAPI test client
+- Zero runtime dependencies on the host (only Docker required)
+- Portable across macOS, Linux, and CI environments
+- Output files written to a host-mounted volume — no data stays in the container
+- No server to maintain, no API key management, no polling loop
+- Build once, reuse across projects via git submodule or a simple clone
