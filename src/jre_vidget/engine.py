@@ -8,6 +8,7 @@ See prompts/phase-3-download-engine/current.md for the spec.
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -255,9 +256,16 @@ def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
     return best[1] if best else None
 
 
+def _emit_retry_log(url: str, attempt_1_based: int, max_retries: int) -> None:
+    """Human-visible retry line on stderr (no Rich / Typer in engine)."""
+    sys.stderr.write(f"⟳  Retry {attempt_1_based}/{max_retries} for {url}\n")
+    sys.stderr.flush()
+
+
 def download(
     config: DownloadConfig,
     progress_hook: ProgressHook | None = None,
+    retries: int | None = None,
 ) -> DownloadResult:
     """
     Download a video according to config.
@@ -266,41 +274,53 @@ def download(
     1. Record start time
     2. Ensure config.output_dir exists (mkdir parents, exist_ok)
     3. Build opts via build_ydl_opts(config, progress_hook)
-    4. Call ydl.download([config.url])
+    4. Call ydl.download([config.url]), retrying on DownloadError up to ``retries``
+       times (from ``config.retries`` when ``retries`` is None) with 2s back-off
     5. On success → find the output file and return DownloadResult(status=SUCCESS)
-    6. On yt_dlp.utils.DownloadError → return DownloadResult(status=FAILED, error=str(e))
+    6. On exhausted DownloadError → return DownloadResult(status=FAILED, error=...)
     7. On any other exception → re-raise as EngineError
     """
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
     opts = build_ydl_opts(config, progress_hook=progress_hook)
+    max_retries = config.retries if retries is None else retries
 
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([config.url])
-    except DownloadError as e:
+    attempt = 0
+    while True:
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([config.url])
+        except DownloadError as e:
+            if attempt < max_retries:
+                _emit_retry_log(config.url, attempt + 1, max_retries)
+                time.sleep(2.0)
+                attempt += 1
+                continue
+            elapsed = time.perf_counter() - started
+            return DownloadResult(
+                url=config.url,
+                status=DownloadStatus.FAILED,
+                filepath=None,
+                error=str(e),
+                duration_s=elapsed,
+                finished_at=datetime.now(),
+            )
+        except Exception as e:
+            raise EngineError(str(e)) from e
+
         elapsed = time.perf_counter() - started
+        filepath = _find_newest_output_file(
+            config.output_dir,
+            _expected_extension(config),
+        )
         return DownloadResult(
             url=config.url,
-            status=DownloadStatus.FAILED,
-            filepath=None,
-            error=str(e),
+            status=DownloadStatus.SUCCESS,
+            filepath=filepath,
+            error=None,
             duration_s=elapsed,
             finished_at=datetime.now(),
         )
-    except Exception as e:
-        raise EngineError(str(e)) from e
-
-    elapsed = time.perf_counter() - started
-    filepath = _find_newest_output_file(config.output_dir, _expected_extension(config))
-    return DownloadResult(
-        url=config.url,
-        status=DownloadStatus.SUCCESS,
-        filepath=filepath,
-        error=None,
-        duration_s=elapsed,
-        finished_at=datetime.now(),
-    )
 
 
 def download_batch(
