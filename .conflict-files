@@ -1,3 +1,3 @@
-ancestorEntries = [".DS_Store", "src/jre_vidget/cli.py", "src/jre_vidget/ui.py"]
-ourEntries = [".DS_Store", "src/jre_vidget/cli.py", "src/jre_vidget/ui.py"]
-theirEntries = [".DS_Store", "src/jre_vidget/cli.py", "src/jre_vidget/ui.py"]
+ancestorEntries = [".DS_Store", "src/jre_vidget/cli.py"]
+ourEntries = [".DS_Store", "src/jre_vidget/cli.py", "tests/conftest.py"]
+theirEntries = [".DS_Store", "src/jre_vidget/cli.py", "tests/conftest.py"]

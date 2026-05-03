@@ -18,8 +18,6 @@ from typing import TypeVar
 
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 import typer
-from rich.console import Console
-from rich.table import Table
 
 from jre_vidget import engine, ui
 from jre_vidget.models import (
@@ -29,8 +27,6 @@ from jre_vidget.models import (
     DownloadStatus,
     OutputFormat,
     Quality,
-    VideoFormat,
-    VideoInfo,
 )
 
 from jre_vidget import auth, checks, engine, models, publisher, ui
@@ -521,18 +517,18 @@ def publish(
         subtitles=resolved_subs,
     )
 
+    hook, progress_ctx = ui.make_progress_hook()
     try:
-        result = engine.download(dl_cfg, progress_hook=ui.make_progress_hook())
+        with progress_ctx:
+            result = engine.download(dl_cfg, progress_hook=hook)
     except engine.EngineError as e:
-        console.print(f"[red]Error:[/red] {e}")
+        ui.print_error("Error", str(e))
         raise typer.Exit(code=1) from e
 
+    ui.print_result(result)
     if result.status == DownloadStatus.SUCCESS:
-        path = result.filepath if result.filepath is not None else "(unknown path)"
-        console.print(f"[green]Downloaded:[/green] {path}")
         return
 
-    console.print(f"[red]Download failed:[/red] {result.error or 'unknown error'}")
     raise typer.Exit(code=1)
 
 
@@ -546,11 +542,11 @@ def batch(
 ) -> None:
     """Download all URLs listed in a text file (one per line)."""
     if not file.is_file():
-        console.print(f"[red]File not found:[/red] {file}")
+        ui.print_error("File not found", str(file))
         raise typer.Exit(code=1)
 
     urls = _read_batch_urls(file)
-    console.print(f"Found {len(urls)} URL(s)")
+    ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
     base = DownloadConfig(
@@ -561,9 +557,11 @@ def batch(
         subtitles=subs if subs else cfg.subtitles,
     )
     job = BatchJob(urls=urls, config=base)
-    engine.download_batch(job, progress_hook=ui.make_progress_hook(), on_result=ui.print_result)
+    hook, progress_ctx = ui.make_progress_hook()
+    with progress_ctx:
+        engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
 
-    console.print(f"Done: [green]{job.completed}[/green] ok, [red]{job.failed}[/red] failed")
+    ui.print_batch_summary(job)
 
 
 @app.command()
@@ -572,43 +570,21 @@ def formats(
 ) -> None:
     """List available formats for a URL."""
     try:
-        with console.status("Fetching format info…", spinner="dots"):
+        with ui.spinner("Fetching video info…"):
             info = engine.fetch_info(url)
     except engine.EngineError as e:
-        console.print(f"[red]Could not fetch info:[/red] {e}")
+        ui.print_error("Could not fetch info", str(e))
         raise typer.Exit(code=1) from e
 
-    _print_video_summary(info)
-    console.print(_formats_table("Video (best per resolution)", info.best_formats))
-
-    audio_only = [f for f in info.formats if f.is_audio_only]
-    audio_only.sort(key=lambda x: x.tbr or 0, reverse=True)
-    if audio_only:
-        console.print(_formats_table("Audio-only", audio_only))
-    else:
-        console.print("[dim]No separate audio-only rows in format list.[/dim]")
-
-
-def _print_video_summary(info: VideoInfo) -> None:
-    console.print(f"[bold]{info.title}[/bold]")
-    if info.uploader:
-        console.print(f"Uploader: {info.uploader}")
-    console.print(f"Duration: {info.duration_str}")
+    ui.print_video_info(info)
+    ui.print_formats_table(info)
 
 
 @config_app.command("show")
 def config_show() -> None:
     """Print current saved configuration."""
     cfg = AppConfig.load()
-    table = Table(title="vidget configuration")
-    table.add_column("Setting", style="cyan")
-    table.add_column("Value")
-    table.add_row("output_dir", str(cfg.output_dir))
-    table.add_row("quality", cfg.quality.value)
-    table.add_row("format", cfg.format.value)
-    table.add_row("subtitles", str(cfg.subtitles))
-    table.add_row("max_concurrent", str(cfg.max_concurrent))
-    console.print(table)
+    ui.print_config(cfg)
 
 
 @config_app.command("set")
@@ -653,7 +629,7 @@ def config_set(
 ||||||| Common ancestor
 =======
     if not changed:
-        console.print("[yellow]No options given; nothing to update.[/yellow]")
+        ui.print_warning("No options given; nothing to update.")
         raise typer.Exit(code=0)
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 
@@ -666,5 +642,5 @@ if __name__ == "__main__":
     app()
 =======
     cfg.save()
-    console.print("[green]Updated:[/green] " + ", ".join(changed))
+    ui.print_success("Updated: " + ", ".join(changed))
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
