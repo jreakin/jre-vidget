@@ -13,20 +13,23 @@ import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import yt_dlp
-from yt_dlp.utils import DownloadError, ExtractorError
+from yt_dlp.utils import DownloadError as YtdlpDownloadError
+from yt_dlp.utils import ExtractorError
 
 from jre_vidget.models import (
     BatchJob,
     DownloadConfig,
+    DownloadError,
     DownloadResult,
     DownloadStatus,
     OutputFormat,
     Quality,
     VideoFormat,
     VideoInfo,
+    VideoPreview,
 )
 
 log = logging.getLogger(__name__)
@@ -211,7 +214,7 @@ def fetch_info(url: str) -> VideoInfo:
     Steps:
     1. Call yt-dlp with extract_flat=False, quiet=True, no_warnings=True
     2. Map the raw info dict → VideoInfo (and its nested VideoFormat list)
-    3. Raise EngineError if yt-dlp raises DownloadError or ExtractorError
+    3. Raise EngineError if yt-dlp raises DownloadError / ExtractorError
     """
     opts: dict[str, Any] = {
         "quiet": True,
@@ -222,13 +225,102 @@ def fetch_info(url: str) -> VideoInfo:
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             raw = ydl.extract_info(url, download=False)
-    except (DownloadError, ExtractorError) as e:
+    except (YtdlpDownloadError, ExtractorError) as e:
         raise EngineError(str(e)) from e
 
     if not isinstance(raw, dict):
         raise EngineError("extract_info returned unexpected payload")
 
     return _raw_to_video_info(raw, url)
+
+
+def _thumbnail_url_from_info(info: dict[str, Any]) -> str:
+    thumb = info.get("thumbnail")
+    if isinstance(thumb, str):
+        return thumb
+    thumbs = info.get("thumbnails")
+    if isinstance(thumbs, list):
+        for entry in reversed(thumbs):
+            if not isinstance(entry, dict):
+                continue
+            row = cast(dict[str, Any], entry)
+            u = row.get("url")
+            if isinstance(u, str) and u:
+                return u
+    return ""
+
+
+def _preview_format_labels(info: dict[str, Any]) -> list[str]:
+    formats_raw = info.get("formats")
+    labels: list[str] = []
+    if not isinstance(formats_raw, list):
+        return labels
+    for item in formats_raw:
+        if not isinstance(item, dict):
+            continue
+        fn = item.get("format_note")
+        label: str | None = None
+        if isinstance(fn, str) and fn and fn.lower() != "none":
+            label = fn
+        else:
+            label = _format_resolution(item)
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def preview(url: str) -> VideoPreview:
+    """
+    Fetch video metadata without downloading any media.
+
+    Raises DownloadError on network failure, unsupported URL, or empty response.
+    """
+    opts: dict[str, Any] = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "noplaylist": True,
+        "extract_flat": False,
+    }
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            raw_info = ydl.extract_info(url, download=False)
+    except (YtdlpDownloadError, ExtractorError) as e:
+        raise DownloadError(str(e)) from e
+
+    if not isinstance(raw_info, dict):
+        raise DownloadError(f"No metadata returned for {url}")
+
+    desc = raw_info.get("description")
+    description = desc if isinstance(desc, str) else ""
+    duration = raw_info.get("duration")
+    duration_seconds = int(duration) if isinstance(duration, (int, float)) else 0
+    title_raw = raw_info.get("title")
+    title = title_raw if isinstance(title_raw, str) else ""
+    upl = raw_info.get("uploader")
+    uploader = upl if isinstance(upl, str) else ""
+
+    vc = raw_info.get("view_count")
+    view_count: int | None = int(vc) if isinstance(vc, (int, float)) else None
+
+    ch = raw_info.get("channel_url")
+    channel_url = ch if isinstance(ch, str) else None
+
+    udate = raw_info.get("upload_date")
+    upload_date = udate if isinstance(udate, str) else None
+
+    return VideoPreview(
+        url=url,
+        title=title,
+        description=description,
+        duration_seconds=duration_seconds,
+        thumbnail_url=_thumbnail_url_from_info(raw_info),
+        uploader=uploader,
+        channel_url=channel_url,
+        view_count=view_count,
+        upload_date=upload_date,
+        formats=_preview_format_labels(raw_info),
+    )
 
 
 def _expected_extension(config: DownloadConfig) -> str:
@@ -290,7 +382,7 @@ def download(
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([config.url])
-        except DownloadError as e:
+        except YtdlpDownloadError as e:
             if attempt < max_retries:
                 _emit_retry_log(config.url, attempt + 1, max_retries)
                 time.sleep(2.0)

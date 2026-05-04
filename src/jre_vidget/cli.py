@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import Literal, TypeVar, cast
@@ -15,6 +17,7 @@ from jre_vidget.models import (
     AppConfig,
     BatchJob,
     DownloadConfig,
+    DownloadError,
     DownloadStatus,
     OutputFormat,
     PublishConfig,
@@ -86,6 +89,46 @@ def _read_batch_urls(path: Path) -> list[str]:
             continue
         urls.append(s)
     return urls
+
+
+def _is_remote_publish_target(target: str) -> bool:
+    t = target.strip()
+    return t.startswith(("http://", "https://"))
+
+
+def _dispatch_publish_workflow(
+    *,
+    url: str,
+    title: str,
+    description: str,
+    privacy: str,
+    remove_after_upload: bool,
+) -> None:
+    """Trigger ``publish.yml`` via the GitHub CLI (``gh`` must be installed and authenticated)."""
+    cmd = [
+        "gh",
+        "workflow",
+        "run",
+        "publish.yml",
+        "-f",
+        f"url={url}",
+        "-f",
+        f"title={title}",
+        "-f",
+        f"description={description}",
+        "-f",
+        f"privacy={privacy}",
+        "-f",
+        f"remove_after_upload={'true' if remove_after_upload else 'false'}",
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except FileNotFoundError as e:
+        msg = "Install the GitHub CLI (https://cli.github.com/) and ensure it is on PATH."
+        raise RuntimeError(msg) from e
+    except subprocess.CalledProcessError as e:
+        detail = (e.stderr or e.stdout or "").strip() or str(e)
+        raise RuntimeError(detail) from e
 
 
 def _validate_output(path: Path) -> Path:
@@ -263,6 +306,29 @@ def formats(
     ui.print_formats_table(info)
 
 
+@app.command()
+def preview(
+    url: str = typer.Argument(..., help="Video URL to preview"),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output JSON only on stdout (for scripting).",
+    ),
+) -> None:
+    """Fetch and display video metadata without downloading."""
+    try:
+        meta = engine.preview(url)
+    except DownloadError as exc:
+        ui.print_error("Preview failed", str(exc))
+        raise typer.Exit(code=1) from exc
+
+    if json_output:
+        typer.echo(json.dumps(meta.model_dump(mode="json"), indent=2))
+        return
+
+    ui.print_preview(meta)
+
+
 @config_app.command("show")
 def config_show() -> None:
     """Print current saved configuration."""
@@ -364,28 +430,88 @@ def auth_logout() -> None:
 
 @app.command()
 def publish(
-    filepath: Path = typer.Argument(..., help="Path to the local video file to upload."),
-    title: str | None = typer.Option(None, "--title", help="Video title (default: filename)."),
-    description: str = typer.Option("", "--description", help="Video description."),
+    target: str = typer.Argument(
+        ...,
+        help="Local video file path, or https:// URL to dispatch the Actions publish workflow.",
+    ),
+    title: str | None = typer.Option(
+        None,
+        "--title",
+        "-t",
+        help="Video title (default: filename for local upload, or scraped title for URL).",
+    ),
+    description: str | None = typer.Option(
+        None,
+        "--description",
+        "-d",
+        help="Video description (local upload default empty).",
+    ),
     privacy: str = typer.Option("public", "--privacy", help="public | unlisted | private"),
     remove: bool = typer.Option(
-        False, "--remove", help="Delete local file after successful upload."
+        False,
+        "--remove",
+        help="Delete local file after upload (local) or set workflow remove flag (URL).",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Skip confirmation when dispatching the Actions workflow (URL only).",
     ),
 ) -> None:
-    """Upload a local video file to your YouTube channel."""
+    """Upload a local file to YouTube, or preview then dispatch Actions publish for a URL."""
     cfg = AppConfig.load()
 
+    if _is_remote_publish_target(target):
+        console.print("[bold cyan]Fetching metadata…[/bold cyan]")
+        try:
+            meta = engine.preview(target)
+        except DownloadError as exc:
+            ui.print_error("Preview failed — cannot confirm before upload", str(exc))
+            raise typer.Exit(code=1) from exc
+
+        if title is not None:
+            meta = meta.model_copy(update={"title": title})
+        if description is not None:
+            meta = meta.model_copy(update={"description": description})
+
+        ui.print_preview(meta)
+
+        if not yes and not typer.confirm("\nPublish this video to YouTube?", default=False):
+            console.print("[yellow]Publish cancelled.[/yellow]")
+            raise typer.Exit(code=0)
+
+        privacy_parsed = _parse_privacy(privacy)
+        try:
+            _dispatch_publish_workflow(
+                url=target,
+                title=meta.title,
+                description=meta.description,
+                privacy=privacy_parsed,
+                remove_after_upload=remove,
+            )
+        except RuntimeError as e:
+            ui.print_error("Could not start publish workflow", str(e))
+            raise typer.Exit(code=1) from e
+
+        console.print(
+            "[green]✓[/green] Publish workflow started. Check GitHub Actions for progress."
+        )
+        return
+
+    filepath = Path(target).expanduser()
     if not filepath.exists():
         console.print(f"[red]File not found:[/red] {filepath}")
         raise typer.Exit(code=1)
 
     resolved_title = title or filepath.stem
+    desc = description if description is not None else ""
     privacy_parsed = _parse_privacy(privacy)
 
     publish_config = PublishConfig(
         filepath=filepath,
         title=resolved_title,
-        description=description,
+        description=desc,
         privacy=privacy_parsed,
         remove_after_upload=remove,
     )

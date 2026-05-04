@@ -83,6 +83,34 @@ class VideoFormat(BaseModel):
         return f"{mb:.1f} MB"
 
 
+class DownloadError(Exception):
+    """Metadata extraction failed (preview / probe) — wraps yt-dlp extract errors."""
+
+
+class VideoPreview(BaseModel):
+    """Metadata fetched before download — used to confirm before upload."""
+
+    url: str
+    title: str
+    description: str
+    duration_seconds: int
+    thumbnail_url: str
+    uploader: str
+    channel_url: str | None = None
+    view_count: int | None = None
+    upload_date: str | None = None  # YYYYMMDD string from yt-dlp
+    formats: list[str] = Field(default_factory=list)  # e.g. ["1080p60", "720p", "480p"]
+
+    @property
+    def duration_display(self) -> str:
+        """Return HH:MM:SS or MM:SS string."""
+        h, rem = divmod(self.duration_seconds, 3600)
+        m, s = divmod(rem, 60)
+        if h:
+            return f"{h}:{m:02d}:{s:02d}"
+        return f"{m}:{s:02d}"
+
+
 class VideoInfo(BaseModel):
     """Metadata for a single URL from yt-dlp."""
 

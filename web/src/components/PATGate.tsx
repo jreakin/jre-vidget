@@ -12,19 +12,24 @@ export function PATGate({ onSave }: PATGateProps) {
         Enter your GitHub token
       </h2>
       <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-        A fine-grained token with <code>Actions: write</code> and <code>Contents: write</code> on
-        this repo. Stored in browser localStorage — only sent to GitHub&apos;s API.
+        A GitHub token for this repo. Required permissions:
+        <br />• <strong>Actions</strong> — read and write
+        <br />• <strong>Contents</strong> — read and write
+        <br />• <strong>Secrets</strong> — read and write <em>(first-time setup only)</em>
+        <br />
+        <br />
+        Stored in browser localStorage — only ever sent to GitHub&apos;s API.
       </p>
       <input
         type="password"
-        placeholder="github_pat_..."
+        placeholder="github_pat_… or ghp_…"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         style={{ width: "100%", marginBottom: "0.75rem" }}
       />
       <button
         type="button"
-        disabled={!value.startsWith("github_")}
+        disabled={!value.startsWith("github_pat_") && !value.startsWith("ghp_")}
         onClick={() => onSave(value)}
         style={{ width: "100%" }}
       >

@@ -1,15 +1,23 @@
-import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
+import { listSecretNames } from "../api/github";
 import { EditModal } from "../components/EditModal";
 import { HistoryList } from "../components/HistoryList";
 import { PATGate } from "../components/PATGate";
-import { usePAT } from "../hooks/usePAT";
+import { SetupWizard } from "../components/SetupWizard";
 import { StatusCard } from "../components/StatusCard";
 import { TopBar } from "../components/TopBar";
 import { UploadForm } from "../components/UploadForm";
+import { usePAT } from "../hooks/usePAT";
 import type { UploadRecord } from "../types";
+
+const REQUIRED = ["VIDGET_CLIENT_ID", "VIDGET_CLIENT_SECRET", "VIDGET_REFRESH_TOKEN"] as const;
 
 export function HomePage() {
   const { pat, setPAT, clearPAT } = usePAT();
+  const [setupComplete, setSetupComplete] = useState(
+    () => localStorage.getItem("vidget_setup_complete") === "true",
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [editRecord, setEditRecord] = useState<UploadRecord | null>(null);
 
@@ -17,13 +25,63 @@ export function HomePage() {
     setRefreshKey((k) => k + 1);
   }, []);
 
+  const markSetupComplete = useCallback(() => {
+    localStorage.setItem("vidget_setup_complete", "true");
+    setSetupComplete(true);
+  }, []);
+
+  const { data: secretNames, isLoading: checkingSecrets } = useQuery({
+    queryKey: ["secretNamesCheck", pat],
+    queryFn: () => listSecretNames(pat),
+    enabled: Boolean(pat) && !setupComplete,
+    retry: 1,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+
+  useEffect(() => {
+    if (!secretNames) return;
+    const allPresent = REQUIRED.every((s) => secretNames.includes(s));
+    if (allPresent) {
+      queueMicrotask(() => {
+        markSetupComplete();
+      });
+    }
+  }, [markSetupComplete, secretNames]);
+
+  const handleClearPAT = useCallback(() => {
+    clearPAT();
+    setSetupComplete(false);
+    localStorage.removeItem("vidget_setup_complete");
+  }, [clearPAT]);
+
   if (!pat) {
     return <PATGate onSave={setPAT} />;
   }
 
+  if (!setupComplete && checkingSecrets) {
+    return (
+      <div
+        style={{
+          maxWidth: 520,
+          margin: "4rem auto",
+          padding: "0 1rem",
+          textAlign: "center",
+          color: "var(--color-text-secondary)",
+          fontSize: 14,
+        }}
+      >
+        Checking configuration…
+      </div>
+    );
+  }
+
+  if (!setupComplete) {
+    return <SetupWizard pat={pat} onComplete={markSetupComplete} />;
+  }
+
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "1.5rem 1rem" }}>
-      <TopBar onClearPAT={clearPAT} />
+      <TopBar onClearPAT={handleClearPAT} />
       <UploadForm pat={pat} onDispatched={bumpHistory} />
       <StatusCard pat={pat} onComplete={bumpHistory} />
       <HistoryList refreshKey={refreshKey} onEdit={setEditRecord} />

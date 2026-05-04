@@ -9,11 +9,12 @@ Testing strategies, test categories, and CI integration for jre-vidget.
 ```
 tests/
 ├── unit/
-│   ├── test_models.py       # Pydantic model validation, enums, computed fields
-│   ├── test_engine.py       # engine.py with mocked yt-dlp (no network)
-│   └── test_config.py       # AppConfig load/save with tmp_path
+│   ├── test_models.py            # Pydantic model validation, enums, computed fields
+│   ├── test_properties_*.py      # Hypothesis property tests (pure models / build_ydl_opts)
+│   ├── test_engine.py            # engine.py with mocked yt-dlp (no network)
+│   └── test_config.py            # AppConfig load/save with tmp_path
 └── integration/
-    └── test_cli.py          # Full CLI via typer.testing.CliRunner (mocked engine)
+    └── test_cli.py               # Full CLI via typer.testing.CliRunner (mocked engine)
 ```
 
 ---
@@ -26,7 +27,20 @@ uv run pytest tests/unit -x                # Unit tests, stop on first failure
 uv run pytest tests/integration -v         # Integration tests, verbose
 uv run pytest --cov=src --cov-report=term-missing  # With coverage
 uv run pytest -k "test_download"           # Run matching tests only
+uv run pytest tests/unit/test_properties_models.py tests/unit/test_properties_engine.py
 ```
+
+---
+
+## Property-based tests (Hypothesis)
+
+Use **Hypothesis** for **pure, deterministic** invariants (formatting, enum maps, JSON round-trips, small finite grids). Prefer **example + mock** tests for CLI flows, `YoutubeDL` patching, and anything non-deterministic.
+
+- Implementation: [`tests/unit/test_properties_models.py`](tests/unit/test_properties_models.py), [`tests/unit/test_properties_engine.py`](tests/unit/test_properties_engine.py)
+- Dependency: `hypothesis` in the `dev` optional group ([`pyproject.toml`](pyproject.toml)); install with `uv sync --extra dev`
+- Reference: [Hypothesis documentation](https://hypothesis.readthedocs.io/)
+
+Property tests use explicit `@settings(max_examples=..., deadline=None)` to keep the unit suite within the performance targets below.
 
 ---
 

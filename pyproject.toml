@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "hypothesis>=6",
     "pytest>=8",
     "pytest-cov>=4",
     "ruff>=0.4",
