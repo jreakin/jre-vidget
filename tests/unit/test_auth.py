@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -81,6 +82,64 @@ class TestLoginBrowser:
             login_browser("cid", "csecret")
 
         mock_flow.run_local_server.assert_called_once_with(port=8765)
+
+    def test_oauth_port_non_numeric_env_falls_back_with_warning(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("VIDGET_OAUTH_PORT", "not-a-port")
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = "rt"
+
+        with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow_cls:
+            mock_flow = MagicMock()
+            mock_flow.run_local_server.return_value = mock_creds
+            mock_flow_cls.from_client_config.return_value = mock_flow
+
+            with caplog.at_level(logging.WARNING, logger="jre_vidget.auth"):
+                login_browser("cid", "csecret")
+
+        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+        assert "not a valid integer" in caplog.text
+
+    @pytest.mark.parametrize("bad", ("0", "65536", "-1"))
+    def test_oauth_port_out_of_range_falls_back_with_warning(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        bad: str,
+    ) -> None:
+        monkeypatch.setenv("VIDGET_OAUTH_PORT", bad)
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = "rt"
+
+        with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow_cls:
+            mock_flow = MagicMock()
+            mock_flow.run_local_server.return_value = mock_creds
+            mock_flow_cls.from_client_config.return_value = mock_flow
+
+            with caplog.at_level(logging.WARNING, logger="jre_vidget.auth"):
+                login_browser("cid", "csecret")
+
+        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+        assert "outside 1–65535" in caplog.text
+
+    def test_oauth_port_valid_env_logs_info(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("VIDGET_OAUTH_PORT", " 9090 ")
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = "rt"
+
+        with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow_cls:
+            mock_flow = MagicMock()
+            mock_flow.run_local_server.return_value = mock_creds
+            mock_flow_cls.from_client_config.return_value = mock_flow
+
+            with caplog.at_level(logging.INFO, logger="jre_vidget.auth"):
+                login_browser("cid", "csecret")
+
+        mock_flow.run_local_server.assert_called_once_with(port=9090)
+        assert "9090" in caplog.text and "VIDGET_OAUTH_PORT" in caplog.text
 
 
 class TestGetCredentials:

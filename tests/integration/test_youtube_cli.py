@@ -21,6 +21,7 @@ from jre_vidget.models import (
     DownloadResult,
     DownloadStatus,
     PrivacyStatus,
+    PublishConfig,
     PublishResult,
     VideoInfo,
 )
@@ -394,7 +395,13 @@ class TestDownloadWithPublish:
 # ---------------------------------------------------------------------------
 class TestDownloadPublishHistoryPipeline:
     def test_json_stdout_shape_then_history_append(self, tmp_path: Path) -> None:
-        """Mocks yt-dlp + publisher; asserts ``--json`` matches ARCHITECTURE flat contract."""
+        """
+        Mocks yt-dlp + publisher; asserts ``--json`` matches ARCHITECTURE flat contract.
+
+        ``vidget download`` does not append ``uploads.json``; CI/workflows call
+        ``history.append_upload_record`` after a successful publish — this test mirrors
+        that two-step contract in one place.
+        """
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         save_app_config(cfg)
@@ -419,9 +426,9 @@ class TestDownloadPublishHistoryPipeline:
         )
 
         with (
-            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info),
-            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl),
-            patch("jre_vidget.cli_common.publisher.upload", return_value=mock_pub),
+            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info) as mock_fi,
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl) as mock_engine_dl,
+            patch("jre_vidget.cli_common.publisher.upload", return_value=mock_pub) as mock_upload,
         ):
             result = runner.invoke(
                 app,
@@ -436,6 +443,14 @@ class TestDownloadPublishHistoryPipeline:
             )
 
         assert result.exit_code == 0, (result.stdout, result.stderr)
+        mock_fi.assert_called_once_with("https://source.example/story")
+        mock_engine_dl.assert_called_once()
+        mock_upload.assert_called_once()
+        publish_cfg = mock_upload.call_args[0][0]
+        assert isinstance(publish_cfg, PublishConfig)
+        assert publish_cfg.filepath == fake_file
+        assert publish_cfg.title == "Scraped Headline"
+
         payload = json.loads((result.stdout or "").strip())
         assert set(payload.keys()) == {"download", "publish"}
         assert payload["download"]["status"] == DownloadStatus.SUCCESS.value

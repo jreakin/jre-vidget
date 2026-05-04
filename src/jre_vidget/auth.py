@@ -12,6 +12,7 @@ Public API:
 
 from __future__ import annotations
 
+import logging
 import os
 
 from google.auth.exceptions import RefreshError
@@ -30,13 +31,16 @@ _GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 # Default OAuth callback port when ``VIDGET_OAUTH_PORT`` is unset or invalid.
 OAUTH_LOCAL_SERVER_PORT = 8080
 
+log = logging.getLogger(__name__)
+
 
 def _resolve_oauth_local_server_port() -> int:
     """
     Port for :meth:`InstalledAppFlow.run_local_server`.
 
     Override with ``VIDGET_OAUTH_PORT`` (1–65535). Non-numeric or out-of-range values
-    fall back to :data:`OAUTH_LOCAL_SERVER_PORT`.
+    fall back to :data:`OAUTH_LOCAL_SERVER_PORT` and emit a WARNING.
+    When the env var is set to a valid port, emit INFO so operators can confirm the value.
     """
     raw = os.getenv("VIDGET_OAUTH_PORT", "").strip()
     if not raw:
@@ -44,9 +48,20 @@ def _resolve_oauth_local_server_port() -> int:
     try:
         port = int(raw, 10)
     except ValueError:
+        log.warning(
+            "VIDGET_OAUTH_PORT=%r is not a valid integer; using default port %s",
+            raw,
+            OAUTH_LOCAL_SERVER_PORT,
+        )
         return OAUTH_LOCAL_SERVER_PORT
     if 1 <= port <= 65535:
+        log.info("OAuth local callback port %s (from VIDGET_OAUTH_PORT)", port)
         return port
+    log.warning(
+        "VIDGET_OAUTH_PORT=%r is outside 1–65535; using default port %s",
+        raw,
+        OAUTH_LOCAL_SERVER_PORT,
+    )
     return OAUTH_LOCAL_SERVER_PORT
 
 

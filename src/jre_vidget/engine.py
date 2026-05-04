@@ -334,9 +334,12 @@ def fetch_info(url: str) -> VideoInfo:
 
 
 def _thumbnail_url_from_info(info: dict[str, Any]) -> str:
-    thumb = info.get("thumbnail")
-    if isinstance(thumb, str):
+    # Use _optional_str_field for type safety; keep "" short-circuit (do not prefer thumbnails).
+    thumb = _optional_str_field(info, "thumbnail")
+    if thumb:
         return thumb
+    if thumb == "":
+        return ""
     thumbs = info.get("thumbnails")
     if isinstance(thumbs, list):
         for entry in reversed(thumbs):

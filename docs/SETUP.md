@@ -44,6 +44,19 @@ uv run vidget auth login
 # → token saved to ~/.vidget/config.json
 ```
 
+### Custom OAuth callback port (`VIDGET_OAUTH_PORT`)
+
+By default the browser OAuth flow listens on **port 8080**. If that port is already in
+use (VPN software, another app, or corporate policy), set `VIDGET_OAUTH_PORT` to a free
+port in **1–65535** before `uv run vidget auth login` (see `.env.example`).
+
+**Google Cloud Console:** Desktop OAuth clients often accept loopback redirects on
+multiple ports, but if consent fails after changing the port, open **APIs & Services →
+Credentials → your OAuth 2.0 Client ID** and ensure **Authorized redirect URIs** include
+`http://localhost:<your-port>/` (or `http://127.0.0.1:<your-port>/`) matching what the
+library uses. Invalid `VIDGET_OAUTH_PORT` values are ignored with a **WARNING** in logs
+and the default port is used.
+
 Then extract the refresh token:
 
 ```bash

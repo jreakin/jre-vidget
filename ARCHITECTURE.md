@@ -129,6 +129,9 @@ Example (download + publish success):
 }
 ```
 
+`finished_at` and other datetimes are whatever Pydantic emits in JSON mode (typically
+ISO-8601 strings with a timezone or offset); exact formatting can vary by field defaults.
+
 On failure before JSON emission, the process exits non-zero; stderr carries the error
 message (and optional JSON log lines if `VIDGET_LOG_FORMAT=json`).
 
