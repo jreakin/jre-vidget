@@ -18,6 +18,7 @@
   --color-background-secondary: #f1f1ee;
   --color-border-secondary: #d4d4d0;
   --color-border-tertiary: #e2e2de;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 *,
