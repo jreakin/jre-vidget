@@ -33,6 +33,7 @@ from jre_vidget.models import (
     DownloadStatus,
     VideoFormat,
     VideoInfo,
+    VideoPreview,
 )
 
 # stderr: progress and status do not pollute stdout (agent-friendly / future --json).
@@ -83,6 +84,33 @@ def spinner(message: str) -> Iterator[None]:
     """Show a Rich spinner while a block executes."""
     with console.status(f"[bold cyan]{message}[/bold cyan]", spinner="dots"):
         yield
+
+
+def print_preview(meta: VideoPreview) -> None:
+    """Render a Rich preview card for a VideoPreview."""
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column("Field", style="bold cyan", width=14)
+    table.add_column("Value")
+
+    table.add_row("Title", meta.title)
+    table.add_row("Uploader", meta.uploader)
+    table.add_row("Duration", meta.duration_display)
+    if meta.view_count is not None:
+        table.add_row("Views", f"{meta.view_count:,}")
+    if meta.upload_date:
+        d = meta.upload_date
+        if len(d) == 8:
+            table.add_row("Uploaded", f"{d[:4]}-{d[4:6]}-{d[6:]}")
+        else:
+            table.add_row("Uploaded", d)
+    if meta.formats:
+        table.add_row("Formats", ", ".join(meta.formats[:6]))
+    table.add_row("URL", meta.url)
+
+    console.print(Panel(table, title="[bold]Video Preview[/bold]", border_style="blue"))
+
+    if meta.thumbnail_url:
+        console.print(f"\n[dim]Thumbnail:[/dim] {meta.thumbnail_url}")
 
 
 def print_video_info(info: VideoInfo) -> None:
