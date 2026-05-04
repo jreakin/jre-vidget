@@ -500,13 +500,15 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 ## Learned User Preferences
 
-- Phase work is often kicked off by referencing a phase prompt (for example `@phase-4-typer-cli.md Implement` or `@phase-15-metadata-preview Implement`, with or without the `.md` suffix) instead of restating full acceptance criteria.
+- Phase work is often kicked off by referencing a phase prompt (for example `@phase-4-typer-cli.md Implement`, `@phase-15-metadata-preview Implement`, or `@phase-16-setup-wizard Implement`, with or without the `.md` suffix) instead of restating full acceptance criteria.
 
 ## Learned Workspace Facts
 
 - A root-level `tmp/` directory is used for local CLI or download smoke tests; `tmp/` is listed in `.gitignore` so artifacts stay out of version control.
 - Public GitHub path used for badges and workflow links in docs is `jreakin/jre-vidget`.
 - Phase 15 (metadata preview and optional URL-based `publish` via GitHub Actions) is documented under `prompts/phase-15-metadata-preview/`; read `current.md` there before implementing, like earlier numbered phases.
+- Phase 16 (setup wizard) is documented under `prompts/phase-16-setup-wizard/`; read `current.md` there before implementing (the root `prompts/phase-16-setup-wizard.md` points at that folder).
+- Dev dependencies include Hypothesis (`hypothesis>=6` in `pyproject.toml`); property-based tests are used selectively where they add value.
 
 ---
 

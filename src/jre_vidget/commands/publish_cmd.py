@@ -27,10 +27,10 @@ def publish(
         "-d",
         help="Video description (local upload default empty).",
     ),
-    privacy: str = typer.Option(
-        PrivacyStatus.PUBLIC.value,
+    privacy: PrivacyStatus = typer.Option(
+        PrivacyStatus.PUBLIC,
         "--privacy",
-        help="public | unlisted | private",
+        help="YouTube privacy: public, unlisted, or private.",
     ),
     remove: bool = typer.Option(
         False,
@@ -45,7 +45,6 @@ def publish(
     ),
 ) -> None:
     """Upload a local file to YouTube, or preview then dispatch Actions publish for a URL."""
-    privacy_status = cc._parse_privacy(privacy)
     cfg = AppConfig.load()
 
     if cc._is_remote_publish_target(target):
@@ -78,7 +77,7 @@ def publish(
                 url=target,
                 title=meta.title,
                 description=meta.description,
-                privacy=privacy_status,
+                privacy=privacy,
                 remove_after_upload=remove,
             )
         except RuntimeError as e:
@@ -102,7 +101,7 @@ def publish(
         filepath=filepath,
         title=resolved_title,
         description=desc,
-        privacy=privacy_status,
+        privacy=privacy,
         remove_after_upload=remove,
     )
 

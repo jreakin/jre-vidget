@@ -52,10 +52,10 @@ def download(
         "--description",
         help="YouTube description.",
     ),
-    pub_privacy: str = typer.Option(
-        PrivacyStatus.PUBLIC.value,
+    pub_privacy: PrivacyStatus = typer.Option(
+        PrivacyStatus.PUBLIC,
         "--privacy",
-        help="public | unlisted | private",
+        help="YouTube privacy: public, unlisted, or private.",
     ),
     pub_remove: bool = typer.Option(
         False,
@@ -69,7 +69,6 @@ def download(
     ),
 ) -> None:
     """Download a single video."""
-    pub_privacy_status = cc._parse_privacy(pub_privacy)
     cfg = AppConfig.load()
     dl_cfg = cc._resolve_download_config(cfg, quality, out_format, output, subs, url)
 
@@ -117,7 +116,7 @@ def download(
             options=cc.PublishOptions(
                 title=pub_title,
                 description=pub_description,
-                privacy=pub_privacy_status,
+                privacy=pub_privacy,
                 remove_after_upload=pub_remove,
             ),
             video_info=video_info,

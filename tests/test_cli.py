@@ -353,7 +353,9 @@ def test_download_invalid_privacy_exit_2(tmp_path: Path) -> None:
         )
     assert result.exit_code == 2
     combined = (result.stdout or "") + (result.stderr or "")
-    assert "privacy must be public, unlisted, or private" in combined
+    plain = _strip_ansi(combined)
+    assert "Invalid value" in plain and "privacy" in plain.lower()
+    assert "public" in plain and "unlisted" in plain and "private" in plain
 
 
 def test_publish_invalid_privacy_exit_2(tmp_path: Path) -> None:
@@ -366,7 +368,9 @@ def test_publish_invalid_privacy_exit_2(tmp_path: Path) -> None:
         )
     assert result.exit_code == 2
     combined = (result.stdout or "") + (result.stderr or "")
-    assert "privacy must be public, unlisted, or private" in combined
+    plain = _strip_ansi(combined)
+    assert "Invalid value" in plain and "privacy" in plain.lower()
+    assert "public" in plain and "unlisted" in plain and "private" in plain
 
 
 def test_history_append_corrupt_json_exits_1(tmp_path: Path) -> None:
