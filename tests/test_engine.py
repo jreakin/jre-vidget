@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -104,6 +105,61 @@ def test_download_sets_filepath_from_finished_hook(tmp_path: Path) -> None:
 
     assert result.status == DownloadStatus.SUCCESS
     assert result.filepath == out_file
+
+
+def test_download_sets_filepath_from_postprocessor_hook(tmp_path: Path) -> None:
+    """Final path from postprocessor hook wins (deterministic after ffmpeg merge)."""
+    out_file = tmp_path / "final.mp4"
+    out_file.write_bytes(b"x")
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            for h in call_opts.get("postprocessor_hooks") or []:
+                h({"status": "finished", "filepath": str(out_file)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == out_file.resolve()
+
+
+def test_download_prefers_postprocessor_over_newer_decoy(tmp_path: Path) -> None:
+    """
+    Postprocessor-reported path is preferred over mtime scan when a decoy file is newer
+    (concurrent-adjacent / slow-disk edge case).
+    """
+    real = tmp_path / "real.mp4"
+    real.write_bytes(b"a")
+    decoy = tmp_path / "decoy.mp4"
+    decoy.write_bytes(b"b")
+    # Make decoy strictly newer so naive mtime pick would be wrong.
+    decoy_stat = decoy.stat()
+    os.utime(real, (decoy_stat.st_mtime - 100, decoy_stat.st_mtime - 100))
+
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            for h in call_opts.get("progress_hooks") or []:
+                h({"status": "finished", "filename": str(decoy)})
+            for h in call_opts.get("postprocessor_hooks") or []:
+                h({"status": "finished", "filepath": str(real)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == real.resolve()
 
 
 def test_download_batch_preserves_url_order_with_thread_pool() -> None:

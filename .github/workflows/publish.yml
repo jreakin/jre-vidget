@@ -54,6 +54,13 @@ jobs:
       - name: Install project
         run: uv sync
 
+      - name: Verify YouTube credentials (non-interactive)
+        env:
+          VIDGET_CLIENT_ID: ${{ secrets.VIDGET_CLIENT_ID }}
+          VIDGET_CLIENT_SECRET: ${{ secrets.VIDGET_CLIENT_SECRET }}
+          VIDGET_REFRESH_TOKEN: ${{ secrets.VIDGET_REFRESH_TOKEN }}
+        run: uv run vidget auth status --strict
+
       - name: Download & publish
         id: publish
         env:

@@ -25,16 +25,16 @@ todos:
     status: completed
   - id: phase-h-engine-output-path
     content: "Dev assessment + risk register: harden final filepath — prefer yt-dlp postprocessor or equivalent deterministic hook; reduce _find_newest_output_file edge cases; tests for slow/concurrent-adjacent scenarios where feasible"
-    status: pending
+    status: completed
   - id: phase-i-cli-modules
     content: "Dev assessment medium-term: extract _dispatch_publish_workflow to src module (e.g. github_workflow.py); extract publish orchestration helpers to publish_flow.py; shrink cli_common imports surface"
-    status: pending
+    status: completed
   - id: phase-j-web-smoke
     content: "Dev assessment long-term as in-scope: Vitest + Testing Library smoke tests for web/ (critical routes or App shell)"
-    status: pending
+    status: completed
   - id: phase-k-ops-ci
     content: "Risk register: publish.yml pre-step vidget auth status (or non-interactive credential check); optional CI yt-dlp version smoke (uv run vidget --version / extractor noop); document quota limits in RUNBOOK or docs"
-    status: pending
+    status: completed
   - id: validate
     content: GitNexus impact per touched symbol batch; full pytest + web test script; ruff/ty; detect_changes on staged
     status: pending

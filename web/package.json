@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
@@ -17,6 +19,8 @@
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@eslint/js": "^10.0.1",
     "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "^24.12.2",
@@ -29,6 +33,8 @@
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.10"
+    "jsdom": "^27.0.0",
+    "vite": "^8.0.10",
+    "vitest": "^4.0.5"
   }
 }

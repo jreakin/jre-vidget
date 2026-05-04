@@ -253,7 +253,11 @@ def test_auth_status_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
     cfg = AppConfig(
-        auth=AuthConfig(refresh_token=SecretStr("not-empty")),
+        auth=AuthConfig(
+            client_id="test-client",
+            client_secret=SecretStr("test-secret"),
+            refresh_token=SecretStr("not-empty"),
+        ),
     )
     save_app_config(cfg)
     result = runner.invoke(app, ["auth", "status"])
@@ -270,6 +274,33 @@ def test_auth_status_not_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert result.exit_code == 0
     combined = (result.stdout or "") + (result.stderr or "")
     assert "not connected" in combined.lower()
+
+
+def test_auth_status_strict_exits_when_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    save_app_config(AppConfig())
+    result = runner.invoke(app, ["auth", "status", "--strict"])
+    assert result.exit_code == 3
+
+
+def test_auth_status_strict_ok_from_env_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """CI-style: secrets only in env, empty config file."""
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    save_app_config(AppConfig())
+    monkeypatch.setenv("VIDGET_CLIENT_ID", "env-id")
+    monkeypatch.setenv("VIDGET_CLIENT_SECRET", "env-secret")
+    monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-rt")
+    result = runner.invoke(app, ["auth", "status", "--strict"])
+    assert result.exit_code == 0
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "connected" in combined.lower()
 
 
 def test_auth_logout_invokes_logout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

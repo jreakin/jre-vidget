@@ -20,6 +20,11 @@ jobs:
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --frozen --all-extras
 
+      - name: vidget and yt-dlp version smoke
+        run: |
+          uv run vidget --version
+          uv run python -c "import yt_dlp; print('yt-dlp', yt_dlp.version.__version__)"
+
       - name: Run tests with coverage
         run: >-
           uv run pytest tests/

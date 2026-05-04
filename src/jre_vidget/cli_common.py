@@ -5,11 +5,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 import typer
@@ -18,6 +16,7 @@ from rich.console import Console
 from jre_vidget import auth, checks, engine, publisher, ui
 from jre_vidget import config as vidget_config
 from jre_vidget.auth import AuthError
+from jre_vidget.github_workflow import dispatch_publish_workflow
 from jre_vidget.models import (
     AppConfig,
     AuthConfig,
@@ -29,6 +28,11 @@ from jre_vidget.models import (
     PublishResult,
     Quality,
     VideoInfo,
+)
+from jre_vidget.publish_flow import (
+    PublishOptions,
+    publish_config_for_downloaded_file,
+    resolve_publish_title_for_download,
 )
 from jre_vidget.publisher import PublishError
 
@@ -154,41 +158,6 @@ def is_remote_publish_target(target: str) -> bool:
     return t.startswith(("http://", "https://"))
 
 
-def dispatch_publish_workflow(
-    *,
-    url: str,
-    title: str,
-    description: str,
-    privacy: PrivacyStatus,
-    remove_after_upload: bool,
-) -> None:
-    """Trigger ``publish.yml`` via the GitHub CLI (``gh`` must be installed and authenticated)."""
-    cmd = [
-        "gh",
-        "workflow",
-        "run",
-        "publish.yml",
-        "-f",
-        f"url={url}",
-        "-f",
-        f"title={title}",
-        "-f",
-        f"description={description}",
-        "-f",
-        f"privacy={privacy.value}",
-        "-f",
-        f"remove_after_upload={'true' if remove_after_upload else 'false'}",
-    ]
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except FileNotFoundError as e:
-        msg = "Install the GitHub CLI (https://cli.github.com/) and ensure it is on PATH."
-        raise RuntimeError(msg) from e
-    except subprocess.CalledProcessError as e:
-        detail = (e.stderr or e.stdout or "").strip() or str(e)
-        raise RuntimeError(detail) from e
-
-
 def validate_output(path: Path) -> Path:
     """Ensure the path exists or can be created, and is writable."""
     try:
@@ -197,52 +166,6 @@ def validate_output(path: Path) -> Path:
         ui.print_error(f"Cannot write to {path}", "Check directory permissions.")
         raise typer.Exit(code=1) from None
     return path
-
-
-@dataclass(frozen=True)
-class PublishOptions:
-    """YouTube publish fields collected from the download command."""
-
-    title: str | None
-    description: str
-    privacy: PrivacyStatus
-    remove_after_upload: bool
-
-
-def resolve_publish_title_for_download(
-    options: PublishOptions,
-    *,
-    video_info: VideoInfo | None,
-    fallback_url: str,
-) -> str:
-    """Pick title: explicit CLI title, else scraped title, else the source URL."""
-    if options.title:
-        return options.title
-    if video_info is not None:
-        return video_info.title
-    return fallback_url
-
-
-def publish_config_for_downloaded_file(
-    filepath: Path,
-    options: PublishOptions,
-    *,
-    video_info: VideoInfo | None,
-    url: str,
-) -> PublishConfig:
-    """Build :class:`PublishConfig` after a successful download."""
-    title = resolve_publish_title_for_download(
-        options,
-        video_info=video_info,
-        fallback_url=url,
-    )
-    return PublishConfig(
-        filepath=filepath,
-        title=title,
-        description=options.description,
-        privacy=options.privacy,
-        remove_after_upload=options.remove_after_upload,
-    )
 
 
 def youtube_upload_or_exit(

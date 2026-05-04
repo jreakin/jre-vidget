@@ -9,13 +9,9 @@ import typer
 # Re-export: ``jre_vidget.cli.engine`` matches what commands use via ``cli_common`` (tests patch here).
 from jre_vidget import auth, checks, engine, publisher, ui
 from jre_vidget.cli_common import (
-    PublishOptions,
-    dispatch_publish_workflow,
     ensure_cli_logging,
     is_headless,
-    publish_config_for_downloaded_file,
     resolve_download_config,
-    resolve_publish_title_for_download,
 )
 from jre_vidget.commands import (
     auth_cmd,
@@ -26,6 +22,12 @@ from jre_vidget.commands import (
     history_cmd,
     preview,
     publish_cmd,
+)
+from jre_vidget.github_workflow import dispatch_publish_workflow
+from jre_vidget.publish_flow import (
+    PublishOptions,
+    publish_config_for_downloaded_file,
+    resolve_publish_title_for_download,
 )
 
 app = typer.Typer(

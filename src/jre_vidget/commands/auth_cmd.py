@@ -32,16 +32,24 @@ def auth_login() -> None:
     cc.console.print("[green]✓[/green] YouTube connected successfully.")
 
 
-def auth_status() -> None:
-    """Show YouTube connection status."""
+def auth_status(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit with code 3 if OAuth client id, secret, and refresh token are not all available.",
+    ),
+) -> None:
+    """Show YouTube connection status (env vars ``VIDGET_*`` count the same as saved config)."""
     cfg = load_app_config()
-    has_rt = bool(cfg.auth.refresh_token.get_secret_value() if cfg.auth.refresh_token else "")
-    if has_rt:
+    ready = cc.auth.publish_oauth_configured(cfg.auth)
+    if ready:
         cc.console.print("[green]✓[/green] YouTube  connected")
     else:
         cc.console.print(
             "[yellow]✗[/yellow] YouTube  not connected — run [bold]vidget auth login[/bold]",
         )
+    if strict and not ready:
+        raise typer.Exit(code=3)
 
 
 def auth_logout() -> None:

@@ -7,6 +7,7 @@ No CLI, no Rich, no video logic.
 Public API:
   login_browser(client_id, client_secret) -> AuthConfig
   get_credentials(auth) -> google.oauth2.credentials.Credentials
+  publish_oauth_configured(auth) -> bool
   logout(cfg) -> AppConfig
 """
 
@@ -69,6 +70,29 @@ class AuthError(Exception):
     """Raised when credentials are missing, invalid, or cannot be refreshed."""
 
 
+def _resolved_oauth_triplet(auth: AuthConfig) -> tuple[str, str, str] | None:
+    """
+    Merge env vars and ``auth`` the same way as :func:`get_credentials`, without refreshing.
+
+    Returns ``None`` if any of client id, client secret, or refresh token is missing/blank.
+    """
+    client_id = (os.getenv("VIDGET_CLIENT_ID") or auth.client_id or "").strip() or None
+    env_secret = os.getenv("VIDGET_CLIENT_SECRET")
+    cfg_secret = auth.client_secret.get_secret_value() if auth.client_secret else None
+    client_secret = (env_secret or cfg_secret or "").strip() or None
+    env_rt = os.getenv("VIDGET_REFRESH_TOKEN")
+    cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
+    refresh_token = (env_rt or cfg_rt or "").strip() or None
+    if not client_id or not client_secret or not refresh_token:
+        return None
+    return client_id, client_secret, refresh_token
+
+
+def publish_oauth_configured(auth: AuthConfig) -> bool:
+    """True when OAuth client id, secret, and refresh token are all available (env or config)."""
+    return _resolved_oauth_triplet(auth) is not None
+
+
 def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     """
     Run the browser-based OAuth2 flow on localhost (default port
@@ -109,18 +133,12 @@ def get_credentials(auth: AuthConfig) -> Credentials:
 
     Raises AuthError if credentials are missing or refresh fails.
     """
-    client_id = os.getenv("VIDGET_CLIENT_ID") or auth.client_id
-    env_secret = os.getenv("VIDGET_CLIENT_SECRET")
-    cfg_secret = auth.client_secret.get_secret_value() if auth.client_secret else None
-    client_secret = env_secret or cfg_secret
-    env_rt = os.getenv("VIDGET_REFRESH_TOKEN")
-    cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
-    refresh_token = env_rt or cfg_rt
-
-    if not refresh_token or not client_id or not client_secret:
+    triplet = _resolved_oauth_triplet(auth)
+    if triplet is None:
         raise AuthError(
             "Not authenticated. Run 'vidget auth login' to connect your YouTube account."
         )
+    client_id, client_secret, refresh_token = triplet
 
     creds = Credentials(
         token=None,

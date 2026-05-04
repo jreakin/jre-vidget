@@ -157,6 +157,21 @@ uv run pytest tests/unit/test_models.py::test_quality_ydl_format -v -s
 
 ---
 
+## GitHub Actions publish (`publish.yml`)
+
+The workflow runs `vidget auth status --strict` before download so missing or blank
+`VIDGET_CLIENT_ID`, `VIDGET_CLIENT_SECRET`, or `VIDGET_REFRESH_TOKEN` fails fast (exit code 3)
+instead of halfway through an upload.
+
+### YouTube Data API quota and failures
+
+Uploads use the [YouTube Data API v3](https://developers.google.com/youtube/v3/getting-started#quota).
+Each upload consumes quota; daily project caps can cause `quotaExceeded` or rate-style errors.
+If CI publish fails after auth succeeds, check [Google Cloud Console](https://console.cloud.google.com/)
+for API usage and quota, and confirm the OAuth project has **YouTube Data API v3** enabled.
+Refresh tokens can be revoked in Google Account security settings; treat `invalid_grant` as
+“re-run `vidget auth login` locally and update `VIDGET_REFRESH_TOKEN` in repository secrets.”
+
 ## CI / Release
 
 ```bash

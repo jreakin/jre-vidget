@@ -416,8 +416,32 @@ def _expected_extension(config: DownloadConfig) -> str:
     return config.format.value
 
 
+def _is_under_output_dir(candidate: Path, output_dir_resolved: Path) -> bool:
+    """True when ``candidate`` resolves to a file inside ``output_dir_resolved`` (no path escape)."""
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        return False
+    try:
+        resolved.relative_to(output_dir_resolved)
+    except ValueError:
+        return False
+    return resolved.is_file()
+
+
 def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
+    """
+    Fallback when yt-dlp hooks did not record a final path.
+
+    Picks the newest ``.{ext}`` file under ``output_dir`` (resolved) within
+    :data:`FILE_DISCOVERY_WINDOW_SECONDS`, ignoring files outside the output tree.
+    """
     ext = ext.lower().lstrip(".")
+    try:
+        base = output_dir.resolve()
+    except OSError as e:
+        log.warning("Could not resolve output_dir %s: %s", output_dir, e)
+        return None
     cutoff = time.time() - FILE_DISCOVERY_WINDOW_SECONDS
     best: tuple[float, Path] | None = None
     try:
@@ -426,11 +450,13 @@ def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
                 continue
             if path.suffix.lower() != f".{ext}":
                 continue
+            if not _is_under_output_dir(path, base):
+                continue
             mtime = path.stat().st_mtime
             if mtime < cutoff:
                 continue
             if best is None or mtime > best[0]:
-                best = (mtime, path)
+                best = (mtime, path.resolve())
     except OSError as e:
         log.warning("Failed to scan output_dir %s: %s", output_dir, e)
         return None
@@ -476,7 +502,22 @@ def download(
     """
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    finished_paths: list[Path] = []
+    progress_finished_paths: list[Path] = []
+    postprocessor_finished_paths: list[Path] = []
+
+    try:
+        output_base = config.output_dir.resolve()
+    except OSError:
+        output_base = config.output_dir
+
+    ext_suffix = f".{_expected_extension(config).lower().lstrip('.')}"
+
+    def _record_if_valid_output(path: Path, bucket: list[Path]) -> None:
+        if not _is_under_output_dir(path, output_base):
+            return
+        if path.suffix.lower() != ext_suffix:
+            return
+        bucket.append(path.resolve())
 
     def _wrapped_progress_hook(d: ProgressData) -> None:
         if progress_hook is not None:
@@ -484,9 +525,19 @@ def download(
         if d.get("status") in _YTDL_PROGRESS_STATUSES_RECORD_OUTPUT:
             fn = d.get("filename")
             if isinstance(fn, str) and fn.strip():
-                finished_paths.append(Path(fn))
+                _record_if_valid_output(Path(fn), progress_finished_paths)
+
+    def _postprocessor_hook(d: dict[str, Any]) -> None:
+        # yt-dlp calls this with ``status`` ``started`` / ``finished``; ``filepath`` is set when done.
+        if d.get("status") != "finished":
+            return
+        fp = d.get("filepath")
+        if isinstance(fp, str) and fp.strip():
+            _record_if_valid_output(Path(fp), postprocessor_finished_paths)
 
     opts = build_ydl_opts(config, progress_hook=_wrapped_progress_hook)
+    existing_pp_hooks = list(opts.get("postprocessor_hooks") or [])
+    opts["postprocessor_hooks"] = existing_pp_hooks + [_postprocessor_hook]
     max_retries = config.retries if retries is None else retries
 
     attempt = 0
@@ -498,7 +549,8 @@ def download(
                 _emit_retry_log(config.url, attempt + 1, max_retries)
                 time.sleep(RETRY_BACKOFF_SECONDS)
                 attempt += 1
-                finished_paths.clear()
+                progress_finished_paths.clear()
+                postprocessor_finished_paths.clear()
                 continue
             elapsed = time.perf_counter() - started
             return DownloadResult(
@@ -514,10 +566,15 @@ def download(
 
         elapsed = time.perf_counter() - started
         filepath: Path | None = None
-        for candidate in reversed(finished_paths):
+        for candidate in reversed(postprocessor_finished_paths):
             if candidate.is_file():
                 filepath = candidate
                 break
+        if filepath is None:
+            for candidate in reversed(progress_finished_paths):
+                if candidate.is_file():
+                    filepath = candidate
+                    break
         if filepath is None:
             filepath = _find_newest_output_file(
                 config.output_dir,
