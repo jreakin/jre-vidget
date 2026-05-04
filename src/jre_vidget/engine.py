@@ -122,6 +122,27 @@ def _optional_str_field(raw: dict[str, Any], key: str) -> str | None:
     return val if isinstance(val, str) else None
 
 
+def _coerced_str_field(raw: dict[str, Any], key: str, default: str = "") -> str:
+    """
+    Stringify ``raw[key]`` when it is a ``str``, ``int``, or finite ``float``.
+
+    Rejects ``bool`` (subclasses ``int``). Other types yield ``default``.
+    Use for yt-dlp fields that are usually strings but may appear as numeric scalars.
+    """
+    val = raw.get(key)
+    if isinstance(val, str):
+        return val
+    if isinstance(val, bool):
+        return default
+    if isinstance(val, int):
+        return str(val)
+    if isinstance(val, float):
+        if not math.isfinite(val):
+            return default
+        return str(val)
+    return default
+
+
 class EngineError(Exception):
     """Raised when yt-dlp or ffmpeg encounters an unrecoverable error."""
 
@@ -248,16 +269,13 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
     tbr = fmt.get("tbr")
     tbr_f = _coerce_float(tbr)
 
-    fid = fmt.get("format_id")
-    ext = fmt.get("ext")
-
     return VideoFormat(
-        format_id=str(fid) if fid is not None else "",
-        ext=str(ext) if ext is not None else "",
+        format_id=_coerced_str_field(fmt, "format_id"),
+        ext=_coerced_str_field(fmt, "ext"),
         resolution=_format_resolution(fmt),
         fps=fps_f,
-        vcodec=fmt.get("vcodec") if isinstance(fmt.get("vcodec"), str) else None,
-        acodec=fmt.get("acodec") if isinstance(fmt.get("acodec"), str) else None,
+        vcodec=_optional_str_field(fmt, "vcodec"),
+        acodec=_optional_str_field(fmt, "acodec"),
         tbr=tbr_f,
         filesize=fs_int,
     )
@@ -266,9 +284,7 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
 def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
     _wu = _optional_str_field(raw, "webpage_url")
     webpage_url = fallback_url if _wu is None else _wu
-    vid = raw.get("id")
-    title_raw = raw.get("title")
-    title = str(title_raw) if title_raw is not None else ""
+    title = _coerced_str_field(raw, "title")
     formats_raw = raw.get("formats")
     formats_list: list[VideoFormat] = []
     if isinstance(formats_raw, list):
@@ -287,7 +303,7 @@ def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
     dur_int = _coerce_int(duration)
 
     return VideoInfo(
-        id=str(vid) if vid is not None else "",
+        id=_coerced_str_field(raw, "id"),
         title=title,
         url=webpage_url,
         webpage_url=webpage_url,
@@ -367,14 +383,11 @@ def preview(url: str) -> VideoPreview:
     except _ExtractionError as e:
         raise DownloadError(str(e)) from e
 
-    desc_raw = raw_info.get("description")
-    description = str(desc_raw) if desc_raw is not None else ""
+    description = _coerced_str_field(raw_info, "description")
     duration = raw_info.get("duration")
     duration_seconds = _coerce_int(duration) or 0
-    title_raw = raw_info.get("title")
-    title = str(title_raw) if title_raw is not None else ""
-    upl_raw = raw_info.get("uploader")
-    uploader = str(upl_raw) if upl_raw is not None else ""
+    title = _coerced_str_field(raw_info, "title")
+    uploader = _coerced_str_field(raw_info, "uploader")
 
     vc = raw_info.get("view_count")
     view_count = _coerce_int(vc)

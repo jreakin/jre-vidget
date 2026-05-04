@@ -87,6 +87,26 @@ repo so the maintainer can fix them. It has the minimum possible permissions.
 If you prefer not to report errors automatically, skip this secret entirely.
 The publish workflow prints a warning but does not fail if the token is absent.
 
+## Web UI: GitHub PAT in the browser (risk note)
+
+The GitHub Pages UI (`web/`) can store a **fine-grained or classic GitHub PAT** in
+`localStorage` under the key `vidget_gh_pat` so the SPA can call GitHub’s REST API
+(workflow dispatch, secrets, etc.) directly from the browser. The token is **never**
+written to the repository; it stays on the user’s machine inside the browser profile.
+
+**Risks to understand:**
+
+- **XSS on the Pages origin** — any script that executes in the context of your GitHub
+  Pages site could read `localStorage`. Keep the Pages site static, avoid untrusted
+  third-party scripts, and use a PAT scoped to the smallest repository + permission set.
+- **Shared or unlocked devices** — anyone with access to the browser profile can use or
+  export the PAT until you revoke it on GitHub or clear site data (use **Clear PAT** in
+  the UI when done).
+- **Phishing** — only enter a PAT on your real `https://<user>.github.io/<repo>/` URL.
+
+Prefer **fine-grained tokens** with repository-only access and the minimum permissions
+the setup wizard lists. Rotate or revoke the token if it may have leaked.
+
 ## GitHub Variables (non-sensitive)
 
 Add these under **Settings → Secrets and variables → Actions → Variables**:

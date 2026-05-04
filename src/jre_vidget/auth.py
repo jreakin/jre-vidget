@@ -27,7 +27,27 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 _GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
+# Default OAuth callback port when ``VIDGET_OAUTH_PORT`` is unset or invalid.
 OAUTH_LOCAL_SERVER_PORT = 8080
+
+
+def _resolve_oauth_local_server_port() -> int:
+    """
+    Port for :meth:`InstalledAppFlow.run_local_server`.
+
+    Override with ``VIDGET_OAUTH_PORT`` (1–65535). Non-numeric or out-of-range values
+    fall back to :data:`OAUTH_LOCAL_SERVER_PORT`.
+    """
+    raw = os.getenv("VIDGET_OAUTH_PORT", "").strip()
+    if not raw:
+        return OAUTH_LOCAL_SERVER_PORT
+    try:
+        port = int(raw, 10)
+    except ValueError:
+        return OAUTH_LOCAL_SERVER_PORT
+    if 1 <= port <= 65535:
+        return port
+    return OAUTH_LOCAL_SERVER_PORT
 
 
 class AuthError(Exception):
@@ -36,7 +56,8 @@ class AuthError(Exception):
 
 def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     """
-    Run the browser-based OAuth2 flow on localhost (see OAUTH_LOCAL_SERVER_PORT).
+    Run the browser-based OAuth2 flow on localhost (default port
+    :data:`OAUTH_LOCAL_SERVER_PORT`, overridable via ``VIDGET_OAUTH_PORT``).
 
     Opens the Google consent URL in the user's default browser, waits for the
     redirect callback, and returns an AuthConfig with refresh_token populated.
@@ -53,7 +74,7 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
         }
     }
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=OAUTH_LOCAL_SERVER_PORT)
+    creds = flow.run_local_server(port=_resolve_oauth_local_server_port())
 
     rt = creds.refresh_token
     return AuthConfig(

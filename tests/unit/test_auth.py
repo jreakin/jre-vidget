@@ -52,7 +52,8 @@ class TestLoginBrowser:
         scopes = call_kwargs[0][1]  # second positional arg is scopes list
         assert "https://www.googleapis.com/auth/youtube.upload" in scopes
 
-    def test_run_local_server_on_port_8080(self) -> None:
+    def test_run_local_server_on_port_8080(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("VIDGET_OAUTH_PORT", raising=False)
         mock_creds = MagicMock()
         mock_creds.refresh_token = "rt"
 
@@ -64,6 +65,22 @@ class TestLoginBrowser:
             login_browser("cid", "csecret")
 
         mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+
+    def test_run_local_server_respects_vidget_oauth_port(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("VIDGET_OAUTH_PORT", "8765")
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = "rt"
+
+        with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow_cls:
+            mock_flow = MagicMock()
+            mock_flow.run_local_server.return_value = mock_creds
+            mock_flow_cls.from_client_config.return_value = mock_flow
+
+            login_browser("cid", "csecret")
+
+        mock_flow.run_local_server.assert_called_once_with(port=8765)
 
 
 class TestGetCredentials:

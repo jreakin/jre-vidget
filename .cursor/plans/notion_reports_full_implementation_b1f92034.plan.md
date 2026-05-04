@@ -16,13 +16,13 @@ todos:
     status: completed
   - id: phase-e-oauth-strfield-tools
     content: P1-SEC-001 oauth port; P3-QUAL-003 _str_field consistency; Makefile optional radon/vulture per refactoring table
-    status: pending
+    status: completed
   - id: phase-f-dev-assessment-docs
     content: "Dev assessment §8: fix ARCHITECTURE.md --json contract (flat download/publish vs wrong envelope); refresh MEMORY.md; populate docs/adr/ (yt-dlp, Typer, Pydantic v2, ffmpeg-python minimum); PAT/localStorage risk note in docs/SETUP or README"
-    status: pending
+    status: completed
   - id: phase-g-e2e-pipeline
     content: "Dev assessment gaps: one integration test for download → publish → history-append (mock yt-dlp + publisher + temp uploads.json); optional assert stdout JSON shape matches ARCHITECTURE"
-    status: pending
+    status: completed
   - id: phase-h-engine-output-path
     content: "Dev assessment + risk register: harden final filepath — prefer yt-dlp postprocessor or equivalent deterministic hook; reduce _find_newest_output_file edge cases; tests for slow/concurrent-adjacent scenarios where feasible"
     status: pending

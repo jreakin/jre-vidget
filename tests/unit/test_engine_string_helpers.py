@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from jre_vidget.engine import _optional_str_field, _raw_to_video_info, _str_field, preview
+from jre_vidget.engine import (
+    _coerced_str_field,
+    _optional_str_field,
+    _raw_to_video_info,
+    _str_field,
+    preview,
+)
 
 
 def test_str_field_missing_and_types() -> None:
@@ -19,6 +25,15 @@ def test_optional_str_field() -> None:
     assert _optional_str_field({"k": "x"}, "k") == "x"
     assert _optional_str_field({"k": ""}, "k") == ""
     assert _optional_str_field({"k": 1}, "k") is None
+
+
+def test_coerced_str_field() -> None:
+    assert _coerced_str_field({}, "k") == ""
+    assert _coerced_str_field({"k": "x"}, "k") == "x"
+    assert _coerced_str_field({"k": 42}, "k") == "42"
+    assert _coerced_str_field({"k": 1.5}, "k") == "1.5"
+    assert _coerced_str_field({"k": True}, "k") == ""
+    assert _coerced_str_field({"k": float("nan")}, "k") == ""
 
 
 def test_raw_to_video_info_webpage_url_fallback() -> None:
@@ -41,7 +56,7 @@ def test_raw_to_video_info_webpage_url_when_str_present() -> None:
 
 
 def test_raw_to_video_info_title_coerces_non_str() -> None:
-    """Non-string ``title`` from yt-dlp should stringify like the pre-refactor path."""
+    """Non-string ``title`` from yt-dlp should stringify via :func:`_coerced_str_field`."""
     raw: dict = {"id": "1", "title": 42, "formats": [], "subtitles": {}}
     info = _raw_to_video_info(raw, "https://x")
     assert info.title == "42"
