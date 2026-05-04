@@ -35,4 +35,4 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen --all-extras
-      - run: uv run mypy src/
+      - run: uv run ty check src/ tests/

@@ -182,7 +182,7 @@ jobs:
             echo "${OVERALL}"; echo ""
             echo "### Pipeline Status"; echo ""
             echo "| Stage | Status | Details |"; echo "|-------|--------|---------|"
-            echo "| $(status_icon "$QUALITY") Quality | \`${QUALITY}\` | ruff check + ruff format + mypy |"
+            echo "| $(status_icon "$QUALITY") Quality | \`${QUALITY}\` | ruff check + ruff format + ty |"
             echo "| $(status_icon "$TESTS") Tests | \`${TESTS}\` | pytest with coverage |"; echo ""
             if [ "$TOTAL" -gt 0 ] 2>/dev/null; then
               echo "### Test Results"; echo ""
