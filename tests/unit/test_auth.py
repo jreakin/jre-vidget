@@ -133,6 +133,42 @@ class TestGetCredentials:
         assert kwargs["client_id"] == "env-client-id"
         assert kwargs["client_secret"] == "env-client-secret"
 
+    def test_env_var_refresh_token_overrides_config(self, monkeypatch):
+        """VIDGET_REFRESH_TOKEN env var takes precedence over AuthConfig.refresh_token."""
+        monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-refresh-token")
+        auth = AuthConfig(
+            client_id="cid",
+            client_secret="csecret",
+            refresh_token="config-token",
+        )
+        mock_creds = MagicMock()
+        mock_creds.valid = True
+
+        with patch("jre_vidget.auth.Credentials") as mock_creds_cls:
+            mock_creds_cls.return_value = mock_creds
+            get_credentials(auth)
+
+        _, kwargs = mock_creds_cls.call_args
+        assert kwargs["refresh_token"] == "env-refresh-token"
+
+    def test_env_var_refresh_token_allows_empty_config(self, monkeypatch):
+        """All three env vars set → AuthConfig can be completely empty."""
+        monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-rt")
+        monkeypatch.setenv("VIDGET_CLIENT_ID", "env-cid")
+        monkeypatch.setenv("VIDGET_CLIENT_SECRET", "env-csecret")
+
+        mock_creds = MagicMock()
+        mock_creds.valid = True
+
+        with patch("jre_vidget.auth.Credentials") as mock_creds_cls:
+            mock_creds_cls.return_value = mock_creds
+            get_credentials(AuthConfig())  # no config values at all — should not raise
+
+        _, kwargs = mock_creds_cls.call_args
+        assert kwargs["refresh_token"] == "env-rt"
+        assert kwargs["client_id"] == "env-cid"
+        assert kwargs["client_secret"] == "env-csecret"
+
 
 class TestLogout:
     def test_clears_all_auth_fields(self, tmp_path, monkeypatch):
