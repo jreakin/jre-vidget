@@ -1,8 +1,4 @@
-"""Shared CLI helpers and dependency bindings for Typer commands.
-
-Command modules import from here so tests can monkeypatch a single namespace
-(``jre_vidget.cli_common.engine``, etc.) instead of ``jre_vidget.cli``.
-"""
+"""Shared CLI helpers; command modules import engine/auth/etc. from here for one patch target."""
 
 from __future__ import annotations
 
