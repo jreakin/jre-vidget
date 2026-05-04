@@ -13,7 +13,7 @@ fi
 
 BASENAME=$(basename "$FILE")
 case "$BASENAME" in
-  config.py|settings.py|conf.py|env.py)
+  config.py|settings.py|conf.py|env.py|auth.py)
     exit 0
     ;;
 esac
