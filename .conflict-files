@@ -1,3 +1,3 @@
 ancestorEntries = [".cursor/hooks/state/continual-learning.json"]
-ourEntries = [".cursor/hooks/state/continual-learning.json", "web/src/index.css", "web/src/main.tsx"]
-theirEntries = [".cursor/hooks/state/continual-learning.json", "web/src/index.css", "web/src/main.tsx"]
+ourEntries = [".cursor/hooks/state/continual-learning.json"]
+theirEntries = [".cursor/hooks/state/continual-learning.json"]
