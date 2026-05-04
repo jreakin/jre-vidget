@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -374,7 +376,17 @@ def download(
     """
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    opts = build_ydl_opts(config, progress_hook=progress_hook)
+    finished_paths: list[Path] = []
+
+    def _wrapped_progress_hook(d: ProgressData) -> None:
+        if progress_hook is not None:
+            progress_hook(d)
+        if d.get("status") == "finished":
+            fn = d.get("filename")
+            if isinstance(fn, str) and fn.strip():
+                finished_paths.append(Path(fn))
+
+    opts = build_ydl_opts(config, progress_hook=_wrapped_progress_hook)
     max_retries = config.retries if retries is None else retries
 
     attempt = 0
@@ -387,6 +399,7 @@ def download(
                 _emit_retry_log(config.url, attempt + 1, max_retries)
                 time.sleep(2.0)
                 attempt += 1
+                finished_paths.clear()
                 continue
             elapsed = time.perf_counter() - started
             return DownloadResult(
@@ -401,10 +414,16 @@ def download(
             raise EngineError(str(e)) from e
 
         elapsed = time.perf_counter() - started
-        filepath = _find_newest_output_file(
-            config.output_dir,
-            _expected_extension(config),
-        )
+        filepath: Path | None = None
+        for candidate in reversed(finished_paths):
+            if candidate.is_file():
+                filepath = candidate
+                break
+        if filepath is None:
+            filepath = _find_newest_output_file(
+                config.output_dir,
+                _expected_extension(config),
+            )
         return DownloadResult(
             url=config.url,
             status=DownloadStatus.SUCCESS,
@@ -432,10 +451,18 @@ def download_batch(
     Returns the mutated BatchJob with all results populated.
     Never raises — failed URLs are captured in DownloadResult(status=FAILED).
     """
-    for url in job.urls:
+    hook_lock = threading.Lock()
+
+    def _safe_progress_hook(d: ProgressData) -> None:
+        if progress_hook is None:
+            return
+        with hook_lock:
+            progress_hook(d)
+
+    def _run_one(url: str) -> DownloadResult:
         per_config = job.config.model_copy(update={"url": url})
         try:
-            result = download(per_config, progress_hook)
+            result = download(per_config, _safe_progress_hook)
         except EngineError as e:
             result = DownloadResult(
                 url=url,
@@ -445,7 +472,23 @@ def download_batch(
                 duration_s=None,
                 finished_at=datetime.now(),
             )
-        job.results.append(result)
         if on_result is not None:
-            on_result(result)
+            with hook_lock:
+                on_result(result)
+        return result
+
+    n = len(job.urls)
+    if n == 0:
+        return job
+
+    max_workers = max(1, min(n, job.config.max_concurrent))
+    if max_workers == 1:
+        for url in job.urls:
+            job.results.append(_run_one(url))
+        return job
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_run_one, url) for url in job.urls]
+        for fut in futures:
+            job.results.append(fut.result())
     return job

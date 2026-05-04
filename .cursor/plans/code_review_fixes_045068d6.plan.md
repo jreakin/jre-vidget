@@ -13,16 +13,16 @@ todos:
     status: completed
   - id: ytdlp-filename-hook
     content: Wrap progress hook in engine.download to capture finished filename; fallback/test
-    status: pending
+    status: completed
   - id: cli-json
     content: Add --json to download, batch, formats with stdout/stderr contract; tests
-    status: pending
+    status: completed
   - id: extract-publish
     content: Extract _publish_after_download (or similar) from cli.download
-    status: pending
+    status: completed
   - id: batch-concurrency
     content: ThreadPoolExecutor in download_batch using max_concurrent; lock or safe UI hook
-    status: pending
+    status: completed
   - id: headless-confirm
     content: _is_headless + config_reset and publish confirm behavior per AGENTS.md
     status: pending

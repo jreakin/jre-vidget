@@ -161,6 +161,7 @@ class DownloadConfig(BaseModel):
     output_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads")
     subtitles: bool = False
     retries: int = Field(default=2, ge=0, le=5)
+    max_concurrent: int = Field(default=3, ge=1, le=32)
 
     @property
     def output_template(self) -> str:

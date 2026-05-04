@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import Literal, TypeVar, cast
@@ -19,10 +20,13 @@ from jre_vidget.models import (
     BatchJob,
     DownloadConfig,
     DownloadError,
+    DownloadResult,
     DownloadStatus,
     OutputFormat,
     PublishConfig,
+    PublishResult,
     Quality,
+    VideoInfo,
 )
 from jre_vidget.publisher import PublishError
 
@@ -142,6 +146,40 @@ def _validate_output(path: Path) -> Path:
     return path
 
 
+def _publish_after_download(
+    cfg: AppConfig,
+    result: DownloadResult,
+    *,
+    pub_title: str | None,
+    pub_description: str,
+    pub_privacy: str,
+    pub_remove: bool,
+    video_info: VideoInfo | None,
+    url: str,
+) -> PublishResult:
+    """Upload the downloaded file to YouTube. Exits the process on auth or upload errors."""
+    fp = result.filepath
+    assert fp is not None  # caller only invokes when filepath is set
+    pub_privacy_parsed = _parse_privacy(pub_privacy)
+    resolved_title = pub_title or (video_info.title if video_info else url)
+    publish_config = PublishConfig(
+        filepath=fp,
+        title=resolved_title,
+        description=pub_description,
+        privacy=pub_privacy_parsed,
+        remove_after_upload=pub_remove,
+    )
+    try:
+        with console.status("Uploading to YouTube…"):
+            return publisher.upload(publish_config, cfg.auth)
+    except AuthError as e:
+        console.print(f"[red]YouTube auth error:[/red] {e}")
+        raise typer.Exit(code=3) from e
+    except PublishError as e:
+        console.print(f"[red]YouTube upload failed:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+
 @app.command()
 def download(
     url: str = typer.Argument(..., help="Video page URL to download"),
@@ -189,6 +227,11 @@ def download(
         "--remove",
         help="Delete local file after upload.",
     ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit only JSON on stdout (download result; includes publish when --publish).",
+    ),
 ) -> None:
     """Download a single video."""
     cfg = AppConfig.load()
@@ -202,7 +245,10 @@ def download(
         try:
             video_info = engine.fetch_info(url)
         except engine.EngineError as e:
-            console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {e}")
+            if json_output:
+                sys.stderr.write(f"warning: could not fetch video info: {e}\n")
+            else:
+                console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {e}")
             video_info = None
 
     dl_cfg = DownloadConfig(
@@ -213,42 +259,50 @@ def download(
         subtitles=resolved_subs,
     )
 
-    hook, progress_ctx = ui.make_progress_hook()
     try:
-        with progress_ctx:
-            result = engine.download(dl_cfg, progress_hook=hook)
+        if json_output:
+            result = engine.download(dl_cfg, progress_hook=None)
+        else:
+            hook, progress_ctx = ui.make_progress_hook()
+            with progress_ctx:
+                result = engine.download(dl_cfg, progress_hook=hook)
     except KeyboardInterrupt:
         ui.print_error("Download cancelled.", "Ctrl-C received.")
         raise typer.Exit(code=130) from None
     except engine.EngineError as e:
-        ui.print_error("Error", str(e))
+        if json_output:
+            sys.stderr.write(f"download error: {e}\n")
+        else:
+            ui.print_error("Error", str(e))
         raise typer.Exit(code=1) from e
 
-    ui.print_result(result)
+    if not json_output:
+        ui.print_result(result)
+
     if result.status != DownloadStatus.SUCCESS:
+        if json_output:
+            typer.echo(json.dumps({"download": result.model_dump(mode="json")}, default=str))
         raise typer.Exit(code=1)
 
+    pub_result: PublishResult | None = None
     if publish_flag and result.filepath:
-        pub_privacy_parsed = _parse_privacy(pub_privacy)
-        resolved_title = pub_title or (video_info.title if video_info else url)
-        publish_config = PublishConfig(
-            filepath=result.filepath,
-            title=resolved_title,
-            description=pub_description,
-            privacy=pub_privacy_parsed,
-            remove_after_upload=pub_remove,
+        pub_result = _publish_after_download(
+            cfg,
+            result,
+            pub_title=pub_title,
+            pub_description=pub_description,
+            pub_privacy=pub_privacy,
+            pub_remove=pub_remove,
+            video_info=video_info,
+            url=url,
         )
 
-        try:
-            with console.status("Uploading to YouTube…"):
-                pub_result = publisher.upload(publish_config, cfg.auth)
-        except AuthError as e:
-            console.print(f"[red]YouTube auth error:[/red] {e}")
-            raise typer.Exit(code=3) from e
-        except PublishError as e:
-            console.print(f"[red]YouTube upload failed:[/red] {e}")
-            raise typer.Exit(code=1) from e
-
+    if json_output:
+        out: dict[str, object] = {"download": result.model_dump(mode="json")}
+        if pub_result is not None:
+            out["publish"] = pub_result.model_dump(mode="json")
+        typer.echo(json.dumps(out, default=str))
+    elif pub_result is not None:
         console.print(f"[green]✓[/green] Published: {pub_result.url}")
         if pub_result.removed_local_file:
             console.print(f"  Local file removed: {result.filepath}")
@@ -261,6 +315,11 @@ def batch(
     out_format: OutputFormat | None = typer.Option(None, "--format", "-f"),
     output: Path | None = typer.Option(None, "--output", "-o"),
     subs: bool = typer.Option(False, "--subs"),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit only JSON on stdout (list of download results).",
+    ),
 ) -> None:
     """Download all URLs listed in a text file (one per line)."""
     if not file.is_file():
@@ -268,7 +327,8 @@ def batch(
         raise typer.Exit(code=1)
 
     urls = _read_batch_urls(file)
-    ui.print_batch_intro(len(urls))
+    if not json_output:
+        ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
     out_dir = _validate_output(_resolve(output, cfg.output_dir))
@@ -278,33 +338,55 @@ def batch(
         format=_resolve(out_format, cfg.format),
         output_dir=out_dir,
         subtitles=subs if subs else cfg.subtitles,
+        max_concurrent=cfg.max_concurrent,
     )
     job = BatchJob(urls=urls, config=base)
-    hook, progress_ctx = ui.make_progress_hook()
     try:
-        with progress_ctx:
-            engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
+        if json_output:
+            engine.download_batch(job, progress_hook=None, on_result=None)
+        else:
+            hook, progress_ctx = ui.make_progress_hook()
+            with progress_ctx:
+                engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
     except KeyboardInterrupt:
         ui.print_error("Download cancelled.", "Ctrl-C received.")
         raise typer.Exit(code=130) from None
 
-    ui.print_batch_summary(job)
+    if json_output:
+        rows = [r.model_dump(mode="json") for r in job.results]
+        typer.echo(json.dumps(rows, default=str))
+    else:
+        ui.print_batch_summary(job)
 
 
 @app.command()
 def formats(
     url: str = typer.Argument(..., help="Video page URL to inspect"),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit only JSON on stdout (VideoInfo).",
+    ),
 ) -> None:
     """List available formats for a URL."""
     try:
-        with ui.spinner("Fetching video info…"):
+        if json_output:
             info = engine.fetch_info(url)
+        else:
+            with ui.spinner("Fetching video info…"):
+                info = engine.fetch_info(url)
     except engine.EngineError as e:
-        ui.print_error("Could not fetch info", str(e))
+        if json_output:
+            sys.stderr.write(f"could not fetch info: {e}\n")
+        else:
+            ui.print_error("Could not fetch info", str(e))
         raise typer.Exit(code=1) from e
 
-    ui.print_video_info(info)
-    ui.print_formats_table(info)
+    if json_output:
+        typer.echo(json.dumps(info.model_dump(mode="json"), default=str))
+    else:
+        ui.print_video_info(info)
+        ui.print_formats_table(info)
 
 
 @app.command()
