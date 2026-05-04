@@ -1,0 +1,11 @@
+name = "vidget-auth"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Secrets (set via `wrangler secret put` or Cloudflare dashboard):
+#   GITHUB_CLIENT_ID
+#   GITHUB_CLIENT_SECRET
+#   ALLOWED_ORIGIN   — e.g. https://jreakin.github.io/jre-vidget
+
+[observability]
+enabled = true
