@@ -1,3 +1,17 @@
+## PR Title
+<!-- Must follow conventional commit format — it becomes the squash-merge commit
+     that release-please reads to determine the next version and CHANGELOG entry.
+
+     Format:  <type>(<scope>): <description>
+     Types:   feat | fix | perf | docs | refactor | test | build | ci | chore | revert
+     Breaking change: append ! before the colon  →  feat!: drop Python 3.10 support
+
+     Examples:
+       feat(cli): add --json flag to preview command
+       fix(engine): handle None return from yt-dlp
+       chore: update dependencies
+-->
+
 ## Summary
 
 <!-- One sentence: what does this PR do and why? -->

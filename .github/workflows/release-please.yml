@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — check what release-please would do without creating a PR"
+        type: boolean
+        default: false
 
 permissions:
   contents: write

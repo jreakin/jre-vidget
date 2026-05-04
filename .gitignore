@@ -33,7 +33,6 @@ Thumbs.db
 # Ruff
 .ruff_cache/
 
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 # uv — commit the lockfile for reproducible installs
 # uv.lock
 
@@ -70,6 +69,9 @@ uv.lock
 # Hypothesis database
 .hypothesis/
 
+# Local CLI / download smoke tests
+tmp/
+
 # Downloaded media — never commit video/audio files
 *.mp4
 *.mkv
@@ -80,4 +82,9 @@ uv.lock
 *.aac
 *.wav
 *.flac
+<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
 >>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
+||||||| Common ancestor
+=======
+.gitnexus
+>>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
