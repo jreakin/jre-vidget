@@ -60,22 +60,24 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     """
     Return valid, refreshed Google credentials.
 
-    Reads client_id and client_secret from auth, falling back to
-    VIDGET_CLIENT_ID / VIDGET_CLIENT_SECRET environment variables.
+    Reads client_id, client_secret, and refresh_token from auth, falling back to
+    VIDGET_CLIENT_ID, VIDGET_CLIENT_SECRET, and VIDGET_REFRESH_TOKEN environment
+    variables (env vars take precedence).
 
     Raises AuthError if credentials are missing or refresh fails.
     """
     client_id = os.getenv("VIDGET_CLIENT_ID") or auth.client_id
     client_secret = os.getenv("VIDGET_CLIENT_SECRET") or auth.client_secret
+    refresh_token = os.getenv("VIDGET_REFRESH_TOKEN") or auth.refresh_token
 
-    if not auth.refresh_token or not client_id or not client_secret:
+    if not refresh_token or not client_id or not client_secret:
         raise AuthError(
             "Not authenticated. Run 'vidget auth login' to connect your YouTube account."
         )
 
     creds = Credentials(
         token=None,
-        refresh_token=auth.refresh_token,
+        refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=client_id,
         client_secret=client_secret,
