@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2",
     "yt-dlp>=2024.1.1",
     "ffmpeg-python>=0.2",
+    "google-api-python-client>=2.100",
+    "google-auth-oauthlib>=1.2",
+    "google-auth-httplib2>=0.2",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +45,11 @@ ignore = ["E501"]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jre_vidget.auth"
+# google-auth / oauth2lib are runtime-typed but not fully stubbed for strict mypy
+disable_error_code = ["no-untyped-call"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

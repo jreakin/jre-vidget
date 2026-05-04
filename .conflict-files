@@ -1,3 +1,3 @@
-ancestorEntries = [".cursor/hooks/state/continual-learning.json", "uv.lock"]
-ourEntries = [".cursor/hooks/state/continual-learning.json", "src/jre_vidget/auth.py", "tests/unit/test_auth.py", "uv.lock"]
-theirEntries = [".cursor/hooks/state/continual-learning.json", "src/jre_vidget/auth.py", "tests/unit/test_auth.py", "uv.lock"]
+ancestorEntries = [".cursor/hooks/state/continual-learning.json"]
+ourEntries = [".cursor/hooks/state/continual-learning.json"]
+theirEntries = [".cursor/hooks/state/continual-learning.json"]
