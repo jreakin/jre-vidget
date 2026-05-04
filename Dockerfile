@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # ---------------------------------------------------------------------------
-# System dependencies — ffmpeg is required for HLS stream merging via yt-dlp
+# System dependencies — ffmpeg required for HLS stream merging via yt-dlp
 # ---------------------------------------------------------------------------
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
@@ -10,23 +10,20 @@ RUN apt-get update \
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
-# Python dependencies — copy metadata first for better layer caching.
-# A change to source code won't invalidate the pip install layer.
+# Install the package — copy metadata first for better layer caching.
+# Changing source files won't invalidate the pip install layer.
 # ---------------------------------------------------------------------------
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-RUN pip install --no-cache-dir ".[server]"
+RUN pip install --no-cache-dir .
 
 # ---------------------------------------------------------------------------
-# Runtime setup
+# Runtime
+# Mount a host directory here to receive downloaded files:
+#   docker run --rm -v ~/Downloads:/downloads jre-vidget download URL --output /downloads
 # ---------------------------------------------------------------------------
-# /downloads is mounted as a Railway persistent volume — files survive restarts
-RUN mkdir -p /downloads
+VOLUME /downloads
 
-ENV DOWNLOADS_DIR=/downloads
-
-# Railway injects PORT at runtime; default to 8000 for local docker run
-EXPOSE 8000
-
-CMD ["sh", "-c", "uvicorn jre_vidget.server:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+ENTRYPOINT ["vidget"]
+CMD ["--help"]
