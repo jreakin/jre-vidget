@@ -43,19 +43,9 @@ External binary: **[ffmpeg](https://ffmpeg.org/)** on your PATH for conversion a
 
 ## Requirements
 
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - [ffmpeg](https://ffmpeg.org/) — format conversion and stream merging
-||||||| Common ancestor
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (package manager)
-- [ffmpeg](https://ffmpeg.org/) — required for format conversion and HLS stream merging
-=======
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (package manager)
-- [ffmpeg](https://ffmpeg.org/) — required for format conversion and HLS stream merging
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
 
 ```bash
 brew install ffmpeg  # macOS
@@ -75,7 +65,6 @@ Or with uv:
 uv sync --extra dev
 ```
 
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 Editable install with dev tools via pip:
 
 ```bash
@@ -84,42 +73,10 @@ pip install -e ".[dev]"
 
 The `vidget` command is provided by the `jre-vidget` package ([`pyproject.toml`](https://github.com/jreakin/jre-vidget/blob/main/pyproject.toml) script entry).
 
-||||||| Common ancestor
-=======
-With pip (editable install and dev tools):
-
-```bash
-pip install -e ".[dev]"
-```
-
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
 ## Usage
 
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 Dependency checks (yt-dlp importable, ffmpeg on PATH) run automatically before commands other than `config`.
 
-||||||| Common ancestor
-=======
-**Phase 1 (scaffold):** a single stub command accepts a URL and prints a placeholder message.
-
-```bash
-vidget --help
-vidget https://example.com
-```
-
-**Planned CLI surface** (later phases):
-
-```bash
-vidget <url>
-vidget batch <file>
-vidget formats <url>
-vidget config show
-vidget config set --output ~/Videos --quality 1080p --format mp4
-```
-
-Examples after the Typer CLI is fully wired (see `prompts/phase-4-typer-cli/`):
-
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
 ```bash
 vidget --help
 vidget --version
