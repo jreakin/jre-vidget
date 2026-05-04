@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.1.3](https://github.com/jreakin/jre-vidget/compare/v0.1.2...v0.1.3) (2026-05-04)
+
+
+### Features
+
+* add Vitest, UI smoke tests, and GitHub dispatch helper ([12f0e26](https://github.com/jreakin/jre-vidget/commit/12f0e26291fd74b9886f087fed1b828db39dee72))
+* add/tests and tighten yt-dlp coercion ([1308898](https://github.com/jreakin/jre-vidget/commit/1308898f46f159005fc52d26c401c38cbda13fff))
+* **auth/engine:** prefer non- env; robust output path resolve ([9c21544](https://github.com/jreakin/jre-vidget/commit/9c21544e600d1dba8d9de174ccc1e2be1f290f50))
+* **cli:** handle/login errors; fix logging behavior ([252c008](https://github.com/jreakin/jre-vidget/commit/252c008e81e3732cb23efb44932f1710104bff13))
+* **cli:** improve progress hook docs and JSON output helpers ([e4a7bd6](https://github.com/jreakin/jre-vidget/commit/e4a7bd6010edc643038dbcf18b7a1f03ed80379c))
+* **cli:** rename internal helpers, add log formatter tests ([ca0599b](https://github.com/jreakin/jre-vidget/commit/ca0599bc70236cf3d33256b6201ebfe8caf1b1c1))
+* coerce yt-d fields rename checks, tighten config docs ([fd1a2af](https://github.com/jreakin/jre-vidget/commit/fd1a2af6c3eaa479edb2929e00d2dc675ec3c3db))
+
+
+### Bug Fixes
+
+* **config:** switch to jre_vidget.config load/save helpers ([32dd331](https://github.com/jreakin/jre-vidget/commit/32dd3315357e45eb671d142c06580350ffcd43c1))
+
+
+### Documentation
+
+* clarify Web UI PAT risk and update docs/metadata ([82c8bd9](https://github.com/jreakin/jre-vidget/commit/82c8bd9c9d7560814f09be45498bd887ea3774ea))
+
+
+### Refactors
+
+* **config:** centralize load/save and remove model I/O ([7f5dd93](https://github.com/jreakin/jre-vidget/commit/7f5dd93dcaca0eab8bbac54dc5613a044f4db759))
+
 ## [0.1.2](https://github.com/jreakin/jre-vidget/compare/v0.1.1...v0.1.2) (2026-05-04)
 
 
