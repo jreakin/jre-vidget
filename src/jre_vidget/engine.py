@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -33,6 +35,22 @@ from jre_vidget.models import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _base_ydl_opts() -> dict[str, Any]:
+    """Shared yt-dlp flags for all engine call sites (quiet, single video, no playlist)."""
+    return {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+
+
+# yt-dlp retry back-off between attempts (seconds).
+RETRY_BACKOFF_SECONDS = 2.0
+# Only consider output files modified within this window when the finished hook
+# did not report a path (seconds).
+FILE_DISCOVERY_WINDOW_SECONDS = 60.0
 
 
 class ProgressData(TypedDict, total=False):
@@ -97,11 +115,9 @@ def build_ydl_opts(
     - progress_hook is appended to the 'progress_hooks' list if provided
     """
     opts: dict[str, Any] = {
+        **_base_ydl_opts(),
         "format": _ydl_format_for_config(config),
         "outtmpl": config.output_template,
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
     }
 
     postprocessors: list[dict[str, Any]] = []
@@ -217,10 +233,8 @@ def fetch_info(url: str) -> VideoInfo:
     3. Raise EngineError if yt-dlp raises DownloadError / ExtractorError
     """
     opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
+        **_base_ydl_opts(),
         "extract_flat": False,
-        "noplaylist": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -276,10 +290,8 @@ def preview(url: str) -> VideoPreview:
     Raises DownloadError on network failure, unsupported URL, or empty response.
     """
     opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
+        **_base_ydl_opts(),
         "skip_download": True,
-        "noplaylist": True,
         "extract_flat": False,
     }
     try:
@@ -329,7 +341,7 @@ def _expected_extension(config: DownloadConfig) -> str:
 
 def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
     ext = ext.lower().lstrip(".")
-    cutoff = time.time() - 60.0
+    cutoff = time.time() - FILE_DISCOVERY_WINDOW_SECONDS
     best: tuple[float, Path] | None = None
     try:
         for path in output_dir.iterdir():
@@ -367,14 +379,25 @@ def download(
     2. Ensure config.output_dir exists (mkdir parents, exist_ok)
     3. Build opts via build_ydl_opts(config, progress_hook)
     4. Call ydl.download([config.url]), retrying on DownloadError up to ``retries``
-       times (from ``config.retries`` when ``retries`` is None) with 2s back-off
+       times (from ``config.retries`` when ``retries`` is None) with
+       ``RETRY_BACKOFF_SECONDS`` between attempts
     5. On success → find the output file and return DownloadResult(status=SUCCESS)
     6. On exhausted DownloadError → return DownloadResult(status=FAILED, error=...)
     7. On any other exception → re-raise as EngineError
     """
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    opts = build_ydl_opts(config, progress_hook=progress_hook)
+    finished_paths: list[Path] = []
+
+    def _wrapped_progress_hook(d: ProgressData) -> None:
+        if progress_hook is not None:
+            progress_hook(d)
+        if d.get("status") == "finished":
+            fn = d.get("filename")
+            if isinstance(fn, str) and fn.strip():
+                finished_paths.append(Path(fn))
+
+    opts = build_ydl_opts(config, progress_hook=_wrapped_progress_hook)
     max_retries = config.retries if retries is None else retries
 
     attempt = 0
@@ -385,8 +408,9 @@ def download(
         except YtdlpDownloadError as e:
             if attempt < max_retries:
                 _emit_retry_log(config.url, attempt + 1, max_retries)
-                time.sleep(2.0)
+                time.sleep(RETRY_BACKOFF_SECONDS)
                 attempt += 1
+                finished_paths.clear()
                 continue
             elapsed = time.perf_counter() - started
             return DownloadResult(
@@ -401,10 +425,16 @@ def download(
             raise EngineError(str(e)) from e
 
         elapsed = time.perf_counter() - started
-        filepath = _find_newest_output_file(
-            config.output_dir,
-            _expected_extension(config),
-        )
+        filepath: Path | None = None
+        for candidate in reversed(finished_paths):
+            if candidate.is_file():
+                filepath = candidate
+                break
+        if filepath is None:
+            filepath = _find_newest_output_file(
+                config.output_dir,
+                _expected_extension(config),
+            )
         return DownloadResult(
             url=config.url,
             status=DownloadStatus.SUCCESS,
@@ -432,10 +462,18 @@ def download_batch(
     Returns the mutated BatchJob with all results populated.
     Never raises — failed URLs are captured in DownloadResult(status=FAILED).
     """
-    for url in job.urls:
+    hook_lock = threading.Lock()
+
+    def _safe_progress_hook(d: ProgressData) -> None:
+        if progress_hook is None:
+            return
+        with hook_lock:
+            progress_hook(d)
+
+    def _run_one(url: str) -> DownloadResult:
         per_config = job.config.model_copy(update={"url": url})
         try:
-            result = download(per_config, progress_hook)
+            result = download(per_config, _safe_progress_hook)
         except EngineError as e:
             result = DownloadResult(
                 url=url,
@@ -445,7 +483,23 @@ def download_batch(
                 duration_s=None,
                 finished_at=datetime.now(),
             )
-        job.results.append(result)
         if on_result is not None:
-            on_result(result)
+            with hook_lock:
+                on_result(result)
+        return result
+
+    n = len(job.urls)
+    if n == 0:
+        return job
+
+    max_workers = max(1, min(n, job.config.max_concurrent))
+    if max_workers == 1:
+        for url in job.urls:
+            job.results.append(_run_one(url))
+        return job
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_run_one, url) for url in job.urls]
+        for fut in futures:
+            job.results.append(fut.result())
     return job

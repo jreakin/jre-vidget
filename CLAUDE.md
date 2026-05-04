@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **jre-vidget** (731 symbols, 1006 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **jre-vidget** (1554 symbols, 2309 relationships, 37 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -97,7 +97,11 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Jre_vidget area (57 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
-| Work in the Tests area (18 symbols) | `.claude/skills/generated/tests/SKILL.md` |
+| Work in the Jre_vidget area (71 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
+| Work in the Unit area (53 symbols) | `.claude/skills/generated/unit/SKILL.md` |
+| Work in the Tests area (25 symbols) | `.claude/skills/generated/tests/SKILL.md` |
+| Work in the Integration area (17 symbols) | `.claude/skills/generated/integration/SKILL.md` |
+| Work in the Api area (16 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Cluster_9 area (3 symbols) | `.claude/skills/generated/cluster-9/SKILL.md` |
 
 <!-- gitnexus:end -->

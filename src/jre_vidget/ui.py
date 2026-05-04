@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -27,6 +28,7 @@ from rich.table import Table
 
 from jre_vidget.engine import ProgressData, ProgressHook
 from jre_vidget.models import (
+    BYTES_PER_MB,
     AppConfig,
     BatchJob,
     DownloadResult,
@@ -38,6 +40,13 @@ from jre_vidget.models import (
 
 # stderr: progress and status do not pollute stdout (agent-friendly / future --json).
 console = Console(stderr=True)
+
+
+def _config_secret_placeholder(secret: SecretStr | None) -> str:
+    """Never print secret values in the terminal."""
+    if secret is None:
+        return "—"
+    return "(set)" if secret.get_secret_value() else "—"
 
 
 def _truncate_url(url: str, max_len: int = 60) -> str:
@@ -75,7 +84,7 @@ def _format_bitrate_cell(f: VideoFormat) -> str:
 def _format_size_cell(f: VideoFormat) -> str:
     if f.filesize is None:
         return "—"
-    mb = f.filesize / 1_048_576
+    mb = f.filesize / BYTES_PER_MB
     return f"~{mb:.0f} MB"
 
 
@@ -248,7 +257,8 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
             if tid is None:
                 task_ref[0] = progress.add_task(desc, total=total_i)
                 tid = task_ref[0]
-            assert tid is not None
+            if tid is None:
+                return
             row = _progress_task_by_id(progress, tid)
             if row is None:
                 return
@@ -323,6 +333,9 @@ def print_config(config: AppConfig) -> None:
     table.add_row("format", config.format.value)
     table.add_row("subtitles", str(config.subtitles))
     table.add_row("max_concurrent", str(config.max_concurrent))
+    table.add_row("auth.client_id", config.auth.client_id or "—")
+    table.add_row("auth.client_secret", _config_secret_placeholder(config.auth.client_secret))
+    table.add_row("auth.refresh_token", _config_secret_placeholder(config.auth.refresh_token))
     console.print(table)
 
 

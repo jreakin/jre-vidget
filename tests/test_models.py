@@ -21,7 +21,7 @@ def test_video_format_audio_only() -> None:
 
 
 def test_app_config_roundtrip(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("jre_vidget.models.CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
     cfg = AppConfig(quality=Quality.P720)
     cfg.save()
     loaded = AppConfig.load()

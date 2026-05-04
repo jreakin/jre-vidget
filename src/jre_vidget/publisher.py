@@ -11,7 +11,7 @@ Public API:
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import httplib2
 from google_auth_httplib2 import AuthorizedHttp
@@ -81,7 +81,12 @@ def upload(
             status, chunk = request.next_chunk()
             if status is not None and progress_hook is not None:
                 progress_hook(status.resumable_progress, status.total_size)
-            response = cast(dict[str, Any] | None, chunk)
+            if isinstance(chunk, dict):
+                response = chunk
+            elif chunk is not None:
+                raise PublishError(
+                    f"Unexpected upload response: expected dict or None, got {type(chunk).__name__}"
+                )
     except HttpError as e:
         raise PublishError(str(e)) from e
 

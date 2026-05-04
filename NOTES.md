@@ -70,16 +70,7 @@ workflow_dispatch → bootstrap.yml (scaffold secrets/variables for cloners)
 
 ```bash
 # Extract credentials after running vidget auth login
-python3 -c "
-import json, pathlib
-cfg = json.loads(pathlib.Path.home().joinpath('.vidget/config.json').read_text())
-print('CLIENT_ID    =', cfg['auth']['client_id'])
-print('CLIENT_SECRET=', cfg['auth']['client_secret'])
-print('REFRESH_TOKEN=', cfg['auth']['refresh_token'])
-"
-
-# Validate CI workflow YAML locally
-actionlint .github/workflows/publish.yml
+python3 -c "import json,pathlib; c=json.loads(pathlib.Path.home().joinpath('.vidget/config.json').read_text())['auth']; print(c['client_id'], c['client_secret'], c['refresh_token'])"
 
 # Build and preview the web UI locally
 cd web && npm run dev

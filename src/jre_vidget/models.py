@@ -9,11 +9,20 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-CONFIG_PATH = Path.home() / ".vidget" / "config.json"
+BYTES_PER_MB = 1_048_576
+
+
+def _format_duration(seconds: int) -> str:
+    """Format whole seconds as ``H:MM:SS`` when hours > 0, else ``M:SS``."""
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
 
 
 class Quality(StrEnum):
@@ -62,6 +71,8 @@ class OutputFormat(StrEnum):
 class VideoFormat(BaseModel):
     """One available stream format from yt-dlp."""
 
+    model_config = ConfigDict(extra="forbid")
+
     format_id: str
     ext: str
     resolution: str | None = None
@@ -79,7 +90,7 @@ class VideoFormat(BaseModel):
     def display_size(self) -> str:
         if self.filesize is None:
             return "unknown"
-        mb = self.filesize / 1_048_576
+        mb = self.filesize / BYTES_PER_MB
         return f"{mb:.1f} MB"
 
 
@@ -89,6 +100,8 @@ class DownloadError(Exception):
 
 class VideoPreview(BaseModel):
     """Metadata fetched before download — used to confirm before upload."""
+
+    model_config = ConfigDict(extra="forbid")
 
     url: str
     title: str
@@ -104,15 +117,13 @@ class VideoPreview(BaseModel):
     @property
     def duration_display(self) -> str:
         """Return HH:MM:SS or MM:SS string."""
-        h, rem = divmod(self.duration_seconds, 3600)
-        m, s = divmod(rem, 60)
-        if h:
-            return f"{h}:{m:02d}:{s:02d}"
-        return f"{m}:{s:02d}"
+        return _format_duration(self.duration_seconds)
 
 
 class VideoInfo(BaseModel):
     """Metadata for a single URL from yt-dlp."""
+
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     title: str
@@ -129,9 +140,7 @@ class VideoInfo(BaseModel):
     def duration_str(self) -> str:
         if self.duration is None:
             return "unknown"
-        m, s = divmod(self.duration, 60)
-        h, m = divmod(m, 60)
-        return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+        return _format_duration(self.duration)
 
     @property
     def best_formats(self) -> list[VideoFormat]:
@@ -149,14 +158,15 @@ class VideoInfo(BaseModel):
 class DownloadConfig(BaseModel):
     """Options for a single download job."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     url: str
     quality: Quality = Quality.BEST
     format: OutputFormat = OutputFormat.MP4
     output_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads")
     subtitles: bool = False
     retries: int = Field(default=2, ge=0, le=5)
-
-    model_config = {"arbitrary_types_allowed": True}
+    max_concurrent: int = Field(default=3, ge=1, le=32)
 
     @property
     def output_template(self) -> str:
@@ -171,33 +181,49 @@ class DownloadConfig(BaseModel):
 class AuthConfig(BaseModel):
     """YouTube OAuth credentials — persisted inside AppConfig."""
 
+    model_config = ConfigDict(extra="forbid")
+
     client_id: str | None = None
-    client_secret: str | None = None
-    refresh_token: str | None = None
+    client_secret: SecretStr | None = None
+    refresh_token: SecretStr | None = None
+
+
+class PrivacyStatus(StrEnum):
+    """YouTube video privacy — matches Data API ``status.privacyStatus`` values."""
+
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+    PRIVATE = "private"
 
 
 class PublishConfig(BaseModel):
     """Options for a single YouTube upload job."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     filepath: Path
     title: str  # required — no default
     description: str = ""
-    privacy: Literal["public", "unlisted", "private"] = "public"
+    privacy: PrivacyStatus = PrivacyStatus.PUBLIC
     remove_after_upload: bool = False
 
 
 class PublishResult(BaseModel):
     """Outcome of a completed YouTube upload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     video_id: str
     url: str  # https://youtube.com/watch?v=...
     title: str
-    privacy: str
+    privacy: PrivacyStatus
     removed_local_file: bool = False
 
 
 class AppConfig(BaseModel):
     """User preferences persisted under ~/.vidget/config.json."""
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     output_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads")
     quality: Quality = Quality.BEST
@@ -206,17 +232,17 @@ class AppConfig(BaseModel):
     max_concurrent: int = 3
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
-    model_config = {"arbitrary_types_allowed": True}
-
     @classmethod
     def load(cls) -> AppConfig:
-        if CONFIG_PATH.exists():
-            return cls.model_validate_json(CONFIG_PATH.read_text(encoding="utf-8"))
-        return cls()
+        from jre_vidget import config as _app_config
+
+        return _app_config.load_app_config()
 
     def save(self) -> None:
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(self.model_dump_json(indent=2), encoding="utf-8")
+        """Write config to disk with plaintext OAuth secrets (not ``model_dump_json`` masking)."""
+        from jre_vidget import config as _app_config
+
+        _app_config.save_app_config(self)
 
 
 class DownloadStatus(StrEnum):
@@ -230,6 +256,8 @@ class DownloadStatus(StrEnum):
 class DownloadResult(BaseModel):
     """Outcome of a completed download job."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     url: str
     status: DownloadStatus
     filepath: Path | None = None
@@ -237,11 +265,11 @@ class DownloadResult(BaseModel):
     duration_s: float | None = None
     finished_at: datetime = Field(default_factory=datetime.now)
 
-    model_config = {"arbitrary_types_allowed": True}
-
 
 class BatchJob(BaseModel):
     """Batch of URLs using one DownloadConfig."""
+
+    model_config = ConfigDict(extra="forbid")
 
     urls: list[str]
     config: DownloadConfig

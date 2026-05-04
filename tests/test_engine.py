@@ -12,6 +12,7 @@ from jre_vidget.engine import EngineError, build_ydl_opts, download, download_ba
 from jre_vidget.models import (
     BatchJob,
     DownloadConfig,
+    DownloadResult,
     DownloadStatus,
     OutputFormat,
     Quality,
@@ -72,6 +73,43 @@ def test_download_returns_failed_on_error() -> None:
     assert result.status == DownloadStatus.FAILED
     assert result.error is not None
     assert "404" in result.error
+
+
+def test_download_sets_filepath_from_finished_hook(tmp_path: Path) -> None:
+    out_file = tmp_path / "vid.mp4"
+    out_file.write_bytes(b"x")
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            hooks = call_opts.get("progress_hooks") or []
+            for h in hooks:
+                h({"status": "finished", "filename": str(out_file)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == out_file
+
+
+def test_download_batch_preserves_url_order_with_thread_pool() -> None:
+    urls = ["https://a.com", "https://b.com", "https://c.com"]
+    job = BatchJob(
+        urls=urls,
+        config=DownloadConfig(url="", max_concurrent=2),
+    )
+
+    def track(cfg: DownloadConfig, _hook: object | None = None) -> DownloadResult:
+        return DownloadResult(url=cfg.url, status=DownloadStatus.SUCCESS)
+
+    with patch("jre_vidget.engine.download", side_effect=track):
+        out = download_batch(job)
+    assert [r.url for r in out.results] == urls
 
 
 def test_download_retries_then_succeeds(tmp_path: Path) -> None:

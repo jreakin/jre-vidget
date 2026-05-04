@@ -1,0 +1,83 @@
+---
+description: "React component composition thresholds and required patterns for web/src/"
+globs: "web/src/**/*.tsx,web/src/**/*.jsx,web/src/hooks/**"
+alwaysApply: true
+---
+
+# Component Composition Rules
+
+## Hard Thresholds
+
+| Rule | Limit | When exceeded |
+|------|-------|---------------|
+| `useState` hooks per component | ≤ 8 | Extract to custom hook in `web/src/hooks/` |
+| Lines of code per `.tsx` file | ≤ 300 | Split into sub-components |
+| Form field `useState` | ≤ 4 | Use `useFormReducer` |
+
+## Required Shared Hooks
+
+Check `web/src/hooks/README.md` BEFORE creating a new state pattern.
+
+| Hook | File | When to use |
+|------|------|------------|
+| `useAsyncState<T>` | `use-async-state.ts` | Any loading/error/data triplet |
+| `useFormReducer<T>` | `use-form-reducer.ts` | 5–8 form fields |
+| `useTableFilters<T>` | `use-table-filters.ts` | Filter/sort/paginate collections |
+| `useModal<T>` | `use-modal.ts` | Any open/close/data modal pattern |
+
+## Form State Decision Tree
+
+```
+1–4 fields  → useState
+5–8 fields  → useFormReducer (web/src/hooks/use-form-reducer.ts)
+>8 fields   → React Hook Form + Zod
+```
+
+## Error UI Requirement
+
+Every `catch` in a component **must** render `<ErrorDisplay />`. No silent failures.
+
+```tsx
+// ✅ CORRECT
+} catch (err) {
+  setError(err instanceof Error ? err.message : 'Unknown error')
+}
+// ...
+{error && <ErrorDisplay message={error} onRetry={refetch} />}
+
+// ❌ WRONG — user sees nothing
+} catch (err) {
+  console.error(err)
+}
+```
+
+## Tailwind DRY Rule
+
+Extract repeated class combinations to `@layer components` in `web/src/index.css`
+after they appear in **3+ places**.
+
+## Type Assertion Discipline
+
+- Prefer type narrowing over `as` assertions
+- `as` requires a `// SAFETY: <reason>` comment on the same line
+- Never write `as unknown as T`
+- Use `unknown` + type guards for external data (API responses, localStorage)
+
+## Hook Index Requirement
+
+Keep `web/src/hooks/README.md` current. Add a row for every hook added, renamed, or removed.
+
+## Pre-Commit Checklist for .tsx Files
+
+Before committing any `.tsx` file:
+
+- [ ] ≤ 8 `useState` calls (grep to verify)
+- [ ] ≤ 300 lines
+- [ ] No form with > 4 field `useState` — use `useFormReducer`
+- [ ] Every `catch` renders `<ErrorDisplay />`
+- [ ] No `any` types
+- [ ] All `as` assertions have `// SAFETY:` comment
+- [ ] Shared hooks used where applicable (check `web/src/hooks/README.md`)
+- [ ] Repeated Tailwind classes extracted if 3+ occurrences
+- [ ] Explicit return type on all async functions
+- [ ] No hardcoded strings that belong in `web/src/types.ts`
