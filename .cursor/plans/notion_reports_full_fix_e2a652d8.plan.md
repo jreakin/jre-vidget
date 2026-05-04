@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: gitnexus-validate
     content: Run gitnexus impact per symbol batch; detect_changes before commit; full pytest/ruff/ty
-    status: pending
+    status: completed
 isProject: false
 ---
 
