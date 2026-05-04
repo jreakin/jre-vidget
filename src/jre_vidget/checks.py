@@ -13,8 +13,12 @@ import sys
 import typer
 
 
-def verify_dependencies() -> None:
-    """Verify yt-dlp is importable; warn on stderr if ffmpeg is missing. Exit 1 if yt-dlp absent."""
+def check_dependencies() -> None:
+    """
+    CLI pre-flight: verify yt-dlp is importable; warn on stderr if ffmpeg is missing.
+
+    Exits with code 1 if yt-dlp is not available.
+    """
     if importlib.util.find_spec("yt_dlp") is None:
         sys.stderr.write(
             "❌  yt-dlp not found. Install with: pip install yt-dlp\n",
@@ -28,6 +32,6 @@ def verify_dependencies() -> None:
         )
 
 
-def check_dependencies() -> None:
-    """CLI pre-flight; same checks as :func:`verify_dependencies`."""
-    verify_dependencies()
+def verify_dependencies() -> None:
+    """Backward-compatible alias for :func:`check_dependencies`."""
+    check_dependencies()

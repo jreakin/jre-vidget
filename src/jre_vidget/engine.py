@@ -39,6 +39,13 @@ log = logging.getLogger(__name__)
 
 YDL_SOCKET_TIMEOUT_SECONDS = 30
 
+# yt-dlp JSON / progress-hook sentinels (avoid scattering magic strings)
+_YT_RESOLUTION_AUDIO_ONLY = "audio only"
+_YT_FORMAT_NOTE_PLACEHOLDERS: frozenset[str] = frozenset({"none"})
+_YTDL_PROGRESS_STATUSES_RECORD_OUTPUT: frozenset[str] = frozenset(
+    {YtdlpStatus.FINISHED.value},
+)
+
 
 def _base_ydl_opts() -> dict[str, Any]:
     """Shared yt-dlp flags for all engine call sites (quiet, single video, no playlist)."""
@@ -68,6 +75,20 @@ class ProgressData(TypedDict, total=False):
 
 
 ProgressHook = Callable[[ProgressData], None]
+
+
+def _coerce_int(value: Any) -> int | None:
+    """Return ``int(value)`` when ``value`` is int or float (yt-dlp JSON), else ``None``."""
+    if isinstance(value, (int, float)):
+        return int(value)
+    return None
+
+
+def _coerce_float(value: Any) -> float | None:
+    """Return ``float(value)`` when ``value`` is int or float (yt-dlp JSON), else ``None``."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
 
 
 def _str_field(raw: dict[str, Any], key: str, default: str = "") -> str:
@@ -188,7 +209,7 @@ def build_ydl_opts(
 
 def _format_resolution(fmt: dict[str, Any]) -> str | None:
     res = fmt.get("resolution")
-    if isinstance(res, str) and res and res != "audio only":
+    if isinstance(res, str) and res and res != _YT_RESOLUTION_AUDIO_ONLY:
         return res
     w, h = fmt.get("width"), fmt.get("height")
     if isinstance(w, int) and isinstance(h, int):
@@ -200,15 +221,13 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
     filesize = fmt.get("filesize")
     if filesize is None:
         filesize = fmt.get("filesize_approx")
-    fs_int: int | None = None
-    if isinstance(filesize, (int, float)):
-        fs_int = int(filesize)
+    fs_int = _coerce_int(filesize)
 
     fps = fmt.get("fps")
-    fps_f: float | None = float(fps) if isinstance(fps, (int, float)) else None
+    fps_f = _coerce_float(fps)
 
     tbr = fmt.get("tbr")
-    tbr_f: float | None = float(tbr) if isinstance(tbr, (int, float)) else None
+    tbr_f = _coerce_float(tbr)
 
     fid = fmt.get("format_id")
     ext = fmt.get("ext")
@@ -246,7 +265,7 @@ def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
                 subtitles[k] = [x for x in v if isinstance(x, dict)]
 
     duration = raw.get("duration")
-    dur_int: int | None = int(duration) if isinstance(duration, (int, float)) else None
+    dur_int = _coerce_int(duration)
 
     return VideoInfo(
         id=str(vid) if vid is not None else "",
@@ -305,7 +324,7 @@ def _preview_format_labels(info: dict[str, Any]) -> list[str]:
             continue
         fn = item.get("format_note")
         label: str | None = None
-        if isinstance(fn, str) and fn and fn.lower() != "none":
+        if isinstance(fn, str) and fn and fn.lower() not in _YT_FORMAT_NOTE_PLACEHOLDERS:
             label = fn
         else:
             label = _format_resolution(item)
@@ -332,14 +351,14 @@ def preview(url: str) -> VideoPreview:
     desc_raw = raw_info.get("description")
     description = str(desc_raw) if desc_raw is not None else ""
     duration = raw_info.get("duration")
-    duration_seconds = int(duration) if isinstance(duration, (int, float)) else 0
+    duration_seconds = _coerce_int(duration) or 0
     title_raw = raw_info.get("title")
     title = str(title_raw) if title_raw is not None else ""
     upl_raw = raw_info.get("uploader")
     uploader = str(upl_raw) if upl_raw is not None else ""
 
     vc = raw_info.get("view_count")
-    view_count: int | None = int(vc) if isinstance(vc, (int, float)) else None
+    view_count = _coerce_int(vc)
 
     channel_url = _optional_str_field(raw_info, "channel_url")
     upload_date = _optional_str_field(raw_info, "upload_date")
@@ -427,7 +446,7 @@ def download(
     def _wrapped_progress_hook(d: ProgressData) -> None:
         if progress_hook is not None:
             progress_hook(d)
-        if d.get("status") == YtdlpStatus.FINISHED.value:
+        if d.get("status") in _YTDL_PROGRESS_STATUSES_RECORD_OUTPUT:
             fn = d.get("filename")
             if isinstance(fn, str) and fn.strip():
                 finished_paths.append(Path(fn))
