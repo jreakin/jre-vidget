@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/jreakin/jre-vidget/compare/v0.1.1...v0.1.2) (2026-05-04)
+
+
+### Refactors
+
+* **cli:** simplify doc and CI workflows ([c9f91a7](https://github.com/jreakin/jre-vidget/commit/c9f91a7816d7ada2997688b8cafb3042c737f0b2))
+* **cli:** simplify doc and CI workflows ([65bc8ad](https://github.com/jreakin/jre-vidget/commit/65bc8ade78980a1f4e2965fe77ef148ab7b4d784))
+
 ## [0.1.1](https://github.com/jreakin/jre-vidget/compare/v0.1.0...v0.1.1) (2026-05-04)
 
 
