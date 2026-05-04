@@ -1,6 +1,6 @@
 # AGENTS.md
 # Version: 0.1.0
-# Last Updated: 2026-05-03
+# Last Updated: 2026-05-04
 # Environment: dev
 # Model: claude-sonnet-4-6
 # Fallback Model: claude-haiku-4-5-20251001
@@ -118,7 +118,8 @@ uv run ty check src/ tests/      # Type check (ty replaces mypy)
 - **No imports from `ui.py` in `engine.py`** — the engine is pure business logic. All Rich
   UI lives in `ui.py` and is called only from `cli.py`.
 - **No bare `print()` in `src/`** (except `cli.py` which uses `console.print` from Rich).
-  Use `structlog` for all logging in engine and config modules.
+  Use the standard library **`logging`** for program diagnostics in modules that are not the Rich CLI surface (for example `logging.getLogger(__name__)` in `engine.py`). Human-facing output stays on Rich via `cli.py` / `ui.py`. **`structlog` is not a project dependency** today; do not introduce it without an explicit decision and an ADR — the previous structlog-only wording was outdated.
+- **Dependency versions (`yt-dlp` and peers):** `pyproject.toml` uses **lower bounds** (e.g. `yt-dlp>=2024.1.1`) so extractor fixes and compatible releases flow in when you run `uv lock` / `uv sync`. **Upper bounds (version ceilings)** trade upstream surprises against delayed security or bugfix picks until the range is widened; do not add ceilings in drive-by changes. If you propose a ceiling (for example to cap `yt-dlp` during a known regression window), do it in a dedicated change with maintainer agreement and a short rationale in the PR.
 - **Pydantic v2 throughout** — all data models inherit from `BaseModel`, use `model_dump_json`
   / `model_validate_json` for serialization.
 - **Entry point:** `vidget = "jre_vidget.cli:app"` in pyproject.toml. The `app` object

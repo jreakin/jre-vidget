@@ -34,10 +34,10 @@ todos:
     status: completed
   - id: docs-logging-pins
     content: Align AGENTS.md structlog claim with code; optional yt-dlp pin policy
-    status: pending
+    status: completed
   - id: gitnexus-gates
     content: Run impact per edited symbols; detect_changes before commit; analyze after merge if needed
-    status: pending
+    status: completed
 isProject: false
 ---
 
