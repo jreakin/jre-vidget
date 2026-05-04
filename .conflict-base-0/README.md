@@ -2,6 +2,16 @@
 
 A CLI video downloader built on [yt-dlp](https://github.com/yt-dlp/yt-dlp) — a local replacement for iTube Studio supporting 1000+ sites including Fox News, YouTube, Twitter/X, and many HLS/Brightcove streams.
 
+## Getting started (clone & configure)
+
+1. **Fork or clone** this repo
+2. Go to **Actions** → **Bootstrap — set up repo secrets and variables** → **Run workflow**
+3. Follow the checklist in the job summary to fill in your secrets
+4. Enable **GitHub Pages** (Settings → Pages → gh-pages branch)
+5. Done — your web UI is live at `https://YOUR_USERNAME.github.io/jre-vidget/`
+
+See [docs/SETUP.md](docs/SETUP.md) for detailed instructions on obtaining each credential.
+
 ## Status & quality
 
 [![CI](https://img.shields.io/github/actions/workflow/status/jreakin/jre-vidget/ci.yml?branch=main&logo=github&label=CI)](https://github.com/jreakin/jre-vidget/actions/workflows/ci.yml)
