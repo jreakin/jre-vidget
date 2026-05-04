@@ -1,5 +1,29 @@
 # Setup Guide
 
+## Why three credentials?
+
+The YouTube Data API v3 doesn't allow video uploads with just an API key. Google mandates
+OAuth 2.0 for any write operation (uploads, metadata updates). Think of it this way:
+
+| Credential | What it represents |
+|------------|--------------------|
+| `VIDGET_CLIENT_ID` | Which Google Cloud app is making the request |
+| `VIDGET_CLIENT_SECRET` | Proof that you own that app |
+| `VIDGET_REFRESH_TOKEN` | Proof that a YouTube account authorized that app to upload |
+
+All three are required by Google — there's no "just give me an upload token" shortcut.
+
+The `client_id` and `client_secret` for a Desktop App are not particularly sensitive.
+Google acknowledges they can't truly be kept secret in an installed/local app. The real
+credential is the `refresh_token` — that's what actually authorizes access to your
+YouTube channel. Guard it like a password.
+
+The setup is a **one-time process**. Once all three are in GitHub Secrets you never
+touch them again unless you revoke access or Google expires the refresh token after
+extended inactivity.
+
+---
+
 ## Prerequisites
 
 1. A Google Cloud project with **YouTube Data API v3** enabled
