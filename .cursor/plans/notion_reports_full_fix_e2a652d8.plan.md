@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: rf-enums-dry
     content: RF-SMELL-01 YtdlpStatus; RF-DRY-03 _str_field; RF-SMELL-03 PrivacyStatus through CLI/helpers
-    status: pending
+    status: completed
   - id: p2-tests-workflow
     content: "P2-TEST-007: test_ui, test_checks, CLI config/auth tests; P2-ARCH-005 + schemaVersion: vidget history append + publish.yml"
     status: pending

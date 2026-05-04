@@ -36,6 +36,7 @@ from jre_vidget.models import (
     VideoFormat,
     VideoInfo,
     VideoPreview,
+    YtdlpStatus,
 )
 
 # stderr: progress and status do not pollute stdout (agent-friendly / future --json).
@@ -221,12 +222,12 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
 
     def hook(d: ProgressData) -> None:
         status = d.get("status")
-        if status == "error":
+        if status == YtdlpStatus.ERROR.value:
             err = str(d.get("error") or "Unknown error")
             print_error("Download error", err)
             return
 
-        if status == "finished":
+        if status == YtdlpStatus.FINISHED.value:
             tid = task_ref[0]
             if tid is not None:
                 task = _progress_task_by_id(progress, tid)
@@ -240,7 +241,7 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
                 console.print("[green]✅ Merging…[/green]")
             return
 
-        if status == "downloading":
+        if status == YtdlpStatus.DOWNLOADING.value:
             desc = "Downloading"
             fn = d.get("filename")
             if isinstance(fn, str) and fn:

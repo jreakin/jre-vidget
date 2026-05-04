@@ -32,6 +32,7 @@ from jre_vidget.models import (
     VideoFormat,
     VideoInfo,
     VideoPreview,
+    YtdlpStatus,
 )
 
 log = logging.getLogger(__name__)
@@ -70,6 +71,18 @@ class ProgressData(TypedDict, total=False):
 
 
 ProgressHook = Callable[[ProgressData], None]
+
+
+def _str_field(raw: dict[str, Any], key: str, default: str = "") -> str:
+    """Return ``raw[key]`` when it is a ``str``, else ``default``."""
+    val = raw.get(key)
+    return val if isinstance(val, str) else default
+
+
+def _optional_str_field(raw: dict[str, Any], key: str) -> str | None:
+    """Return ``raw[key]`` when it is a ``str``, else ``None``."""
+    val = raw.get(key)
+    return val if isinstance(val, str) else None
 
 
 class EngineError(Exception):
@@ -216,10 +229,10 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
 
 
 def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
-    webpage = raw.get("webpage_url")
-    webpage_url = webpage if isinstance(webpage, str) else fallback_url
+    _wu = _optional_str_field(raw, "webpage_url")
+    webpage_url = fallback_url if _wu is None else _wu
     vid = raw.get("id")
-    title = raw.get("title")
+    title = _str_field(raw, "title")
     formats_raw = raw.get("formats")
     formats_list: list[VideoFormat] = []
     if isinstance(formats_raw, list):
@@ -237,19 +250,15 @@ def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
     duration = raw.get("duration")
     dur_int: int | None = int(duration) if isinstance(duration, (int, float)) else None
 
-    thumb = raw.get("thumbnail")
-    upl = raw.get("uploader")
-    udate = raw.get("upload_date")
-
     return VideoInfo(
         id=str(vid) if vid is not None else "",
-        title=str(title) if title is not None else "",
+        title=title,
         url=webpage_url,
         webpage_url=webpage_url,
         duration=dur_int,
-        thumbnail=thumb if isinstance(thumb, str) else None,
-        uploader=upl if isinstance(upl, str) else None,
-        upload_date=udate if isinstance(udate, str) else None,
+        thumbnail=_optional_str_field(raw, "thumbnail"),
+        uploader=_optional_str_field(raw, "uploader"),
+        upload_date=_optional_str_field(raw, "upload_date"),
         formats=formats_list,
         subtitles=subtitles,
     )
@@ -322,23 +331,17 @@ def preview(url: str) -> VideoPreview:
     except _ExtractionError as e:
         raise DownloadError(str(e)) from e
 
-    desc = raw_info.get("description")
-    description = desc if isinstance(desc, str) else ""
+    description = _str_field(raw_info, "description")
     duration = raw_info.get("duration")
     duration_seconds = int(duration) if isinstance(duration, (int, float)) else 0
-    title_raw = raw_info.get("title")
-    title = title_raw if isinstance(title_raw, str) else ""
-    upl = raw_info.get("uploader")
-    uploader = upl if isinstance(upl, str) else ""
+    title = _str_field(raw_info, "title")
+    uploader = _str_field(raw_info, "uploader")
 
     vc = raw_info.get("view_count")
     view_count: int | None = int(vc) if isinstance(vc, (int, float)) else None
 
-    ch = raw_info.get("channel_url")
-    channel_url = ch if isinstance(ch, str) else None
-
-    udate = raw_info.get("upload_date")
-    upload_date = udate if isinstance(udate, str) else None
+    channel_url = _optional_str_field(raw_info, "channel_url")
+    upload_date = _optional_str_field(raw_info, "upload_date")
 
     return VideoPreview(
         url=url,
@@ -411,7 +414,7 @@ def download(
     def _wrapped_progress_hook(d: ProgressData) -> None:
         if progress_hook is not None:
             progress_hook(d)
-        if d.get("status") == "finished":
+        if d.get("status") == YtdlpStatus.FINISHED.value:
             fn = d.get("filename")
             if isinstance(fn, str) and fn.strip():
                 finished_paths.append(Path(fn))

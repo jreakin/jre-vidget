@@ -60,13 +60,6 @@ def _is_headless() -> bool:
     return not sys.stdin.isatty()
 
 
-def _parse_privacy(value: str) -> PrivacyStatus:
-    try:
-        return PrivacyStatus(value)
-    except ValueError:
-        raise typer.BadParameter("privacy must be public, unlisted, or private") from None
-
-
 app = typer.Typer(
     name="vidget",
     help="🎬  Download & convert videos from 1000+ sites.",
@@ -159,7 +152,7 @@ def _dispatch_publish_workflow(
     url: str,
     title: str,
     description: str,
-    privacy: str,
+    privacy: PrivacyStatus,
     remove_after_upload: bool,
 ) -> None:
     """Trigger ``publish.yml`` via the GitHub CLI (``gh`` must be installed and authenticated)."""
@@ -175,7 +168,7 @@ def _dispatch_publish_workflow(
         "-f",
         f"description={description}",
         "-f",
-        f"privacy={privacy}",
+        f"privacy={privacy.value}",
         "-f",
         f"remove_after_upload={'true' if remove_after_upload else 'false'}",
     ]
@@ -205,7 +198,7 @@ def _publish_after_download(
     *,
     pub_title: str | None,
     pub_description: str,
-    pub_privacy: str,
+    pub_privacy: PrivacyStatus,
     pub_remove: bool,
     video_info: VideoInfo | None,
     url: str,
@@ -220,13 +213,12 @@ def _publish_after_download(
         else:
             ui.print_error("Cannot publish", msg)
         raise typer.Exit(code=1)
-    pub_privacy_parsed = _parse_privacy(pub_privacy)
     resolved_title = pub_title or (video_info.title if video_info else url)
     publish_config = PublishConfig(
         filepath=fp,
         title=resolved_title,
         description=pub_description,
-        privacy=pub_privacy_parsed,
+        privacy=pub_privacy,
         remove_after_upload=pub_remove,
     )
     try:
@@ -281,8 +273,8 @@ def download(
         "--description",
         help="YouTube description.",
     ),
-    pub_privacy: str = typer.Option(
-        "public",
+    pub_privacy: PrivacyStatus = typer.Option(
+        PrivacyStatus.PUBLIC,
         "--privacy",
         help="public | unlisted | private",
     ),
@@ -595,7 +587,11 @@ def publish(
         "-d",
         help="Video description (local upload default empty).",
     ),
-    privacy: str = typer.Option("public", "--privacy", help="public | unlisted | private"),
+    privacy: PrivacyStatus = typer.Option(
+        PrivacyStatus.PUBLIC,
+        "--privacy",
+        help="public | unlisted | private",
+    ),
     remove: bool = typer.Option(
         False,
         "--remove",
@@ -636,13 +632,12 @@ def publish(
                 console.print("[yellow]Publish cancelled.[/yellow]")
                 raise typer.Exit(code=0)
 
-        privacy_parsed = _parse_privacy(privacy)
         try:
             _dispatch_publish_workflow(
                 url=target,
                 title=meta.title,
                 description=meta.description,
-                privacy=privacy_parsed,
+                privacy=privacy,
                 remove_after_upload=remove,
             )
         except RuntimeError as e:
@@ -661,13 +656,12 @@ def publish(
 
     resolved_title = title or filepath.stem
     desc = description if description is not None else ""
-    privacy_parsed = _parse_privacy(privacy)
 
     publish_config = PublishConfig(
         filepath=filepath,
         title=resolved_title,
         description=desc,
-        privacy=privacy_parsed,
+        privacy=privacy,
         remove_after_upload=remove,
     )
 

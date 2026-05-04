@@ -25,6 +25,14 @@ def _format_duration(seconds: int) -> str:
     return f"{m}:{s:02d}"
 
 
+class YtdlpStatus(StrEnum):
+    """yt-dlp ``progress_hooks`` payload ``status`` values handled in engine / UI."""
+
+    DOWNLOADING = "downloading"
+    FINISHED = "finished"
+    ERROR = "error"
+
+
 class Quality(StrEnum):
     """Supported download quality presets."""
 
