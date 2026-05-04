@@ -1,5 +1,75 @@
-.PHONY: install dev test lint format typecheck clean check all \
-        docker-build docker-run docker-stop server
+.PHONY: setup update download batch formats install-cli \
+        install dev test lint format typecheck format-check coverage check clean all
+
+IMAGE := jre-vidget
+
+# ---------------------------------------------------------------------------
+# First-time setup and updates
+# ---------------------------------------------------------------------------
+
+# Build the Docker image — run this once after cloning
+setup:
+	docker build -t $(IMAGE) .
+	@echo ""
+	@echo "✓  $(IMAGE) is ready."
+	@echo ""
+	@echo "Usage:"
+	@echo "   make download URL=\"https://video.foxnews.com/...\""
+	@echo "   make batch    FILE=urls.txt"
+	@echo "   make formats  URL=\"https://video.foxnews.com/...\""
+	@echo ""
+	@echo "Files land in ./downloads/ by default."
+	@echo "Override with: make download URL=\"...\" OUTPUT=/your/path"
+	@echo ""
+	@echo "To use 'vidget' as a global command:"
+	@echo "   make install-cli"
+
+# Rebuild after pulling new changes (no layer cache)
+update:
+	docker build --no-cache -t $(IMAGE) .
+	@echo "✓  $(IMAGE) updated."
+
+# ---------------------------------------------------------------------------
+# Download commands — Docker required, no Python/yt-dlp/ffmpeg on host
+# ---------------------------------------------------------------------------
+
+OUTPUT ?= $(PWD)/downloads
+
+# Download a single video
+# Usage: make download URL="https://..."
+#        make download URL="https://..." OUTPUT=~/Videos
+download:
+	@test -n "$(URL)" || (echo "Error: URL is required\nUsage: make download URL=\"https://...\"" && exit 1)
+	@mkdir -p "$(OUTPUT)"
+	docker run --rm \
+		-v "$(OUTPUT):/downloads" \
+		$(IMAGE) download "$(URL)" --output /downloads
+
+# Batch download from a text file (one URL per line, # for comments)
+# Usage: make batch FILE=urls.txt
+#        make batch FILE=urls.txt OUTPUT=~/Videos
+batch:
+	@test -n "$(FILE)" || (echo "Error: FILE is required\nUsage: make batch FILE=urls.txt" && exit 1)
+	@mkdir -p "$(OUTPUT)"
+	docker run --rm \
+		-v "$(OUTPUT):/downloads" \
+		-v "$(abspath $(FILE)):/urls.txt:ro" \
+		$(IMAGE) batch /urls.txt --output /downloads
+
+# List available formats for a URL (no download)
+# Usage: make formats URL="https://..."
+formats:
+	@test -n "$(URL)" || (echo "Error: URL is required\nUsage: make formats URL=\"https://...\"" && exit 1)
+	docker run --rm $(IMAGE) formats "$(URL)"
+
+# Install bin/vidget as a global command so you can run `vidget` from anywhere
+install-cli:
+	ln -sf "$(PWD)/bin/vidget" /usr/local/bin/vidget
+	@echo "✓  vidget installed → /usr/local/bin/vidget"
+
+# ---------------------------------------------------------------------------
+# Dev workflow (Python / uv)
+# ---------------------------------------------------------------------------
 
 # Install runtime dependencies
 install:
@@ -25,7 +95,7 @@ test-integration:
 coverage:
 	uv run pytest --cov=src --cov-report=term-missing
 
-# Lint (ruff check)
+# Lint (ruff + mypy)
 lint:
 	uv run ruff check src/ tests/
 	uv run mypy src/ --strict
@@ -38,7 +108,7 @@ format:
 typecheck:
 	uv run mypy src/ --strict
 
-# Check formatting without modifying files (used in CI)
+# Check formatting without modifying (used in CI)
 format-check:
 	uv run ruff format --check src/ tests/
 
@@ -54,24 +124,3 @@ clean:
 
 # Run all quality checks (CI equivalent)
 all: format-check lint test
-
-# ---------------------------------------------------------------------------
-# Docker / server
-# ---------------------------------------------------------------------------
-
-# Build the Docker image locally
-docker-build:
-	docker build -t jre-vidget .
-
-# Run the server locally via Docker (mirrors Railway environment)
-docker-run: docker-build
-	mkdir -p ./downloads
-	docker run --rm -p 8000:8000 \
-		-v "$(PWD)/downloads:/downloads" \
-		-e VIDGET_API_KEY=dev-secret \
-		-e DOWNLOADS_DIR=/downloads \
-		jre-vidget
-
-# Run the server locally without Docker (requires server extras installed)
-server:
-	uv run --extra server uvicorn jre_vidget.server:app --reload --port 8000

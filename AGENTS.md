@@ -299,7 +299,7 @@ Before beginning work on a multi-step task, explicitly state:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **jre-vidget** (590 symbols, 744 relationships, 9 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **jre-vidget** (731 symbols, 1006 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -395,8 +395,8 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Jre_vidget area (24 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
-| Work in the Tests area (12 symbols) | `.claude/skills/generated/tests/SKILL.md` |
+| Work in the Jre_vidget area (57 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
+| Work in the Tests area (18 symbols) | `.claude/skills/generated/tests/SKILL.md` |
 
 <!-- gitnexus:end -->
 
@@ -410,4 +410,3 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 - A root-level `tmp/` directory is used for local CLI or download smoke tests; `tmp/` is listed in `.gitignore` so artifacts stay out of version control.
 - Public GitHub path used for badges and workflow links in docs is `jreakin/jre-vidget`.
-
