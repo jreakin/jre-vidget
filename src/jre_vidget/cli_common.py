@@ -8,7 +8,6 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 
 import typer
@@ -33,6 +32,9 @@ from jre_vidget.publisher import PublishError
 
 console = Console(stderr=True)
 
+# Set True after the first ``ensure_cli_logging()`` attempt (mirrors one-shot ``basicConfig`` semantics).
+_vidget_cli_logging_initialized = False
+
 
 class _JsonLineFormatter(logging.Formatter):
     """One JSON object per log line (stdlib only; enable via ``VIDGET_LOG_FORMAT=json``)."""
@@ -56,9 +58,12 @@ def _log_level_from_env() -> int:
     return candidate if isinstance(candidate, int) else logging.WARNING
 
 
-@lru_cache(maxsize=1)
 def ensure_cli_logging() -> None:
     """Configure root logging once per process from ``VIDGET_LOG_LEVEL`` and optional ``VIDGET_LOG_FORMAT``."""
+    global _vidget_cli_logging_initialized
+    if _vidget_cli_logging_initialized:
+        return
+    _vidget_cli_logging_initialized = True
     root = logging.getLogger()
     if root.handlers:
         return
@@ -226,7 +231,12 @@ def youtube_upload_or_exit(
     *,
     json_output: bool = False,
 ) -> PublishResult:
-    """Run resumable upload with a Rich spinner; map auth/upload failures to ``typer.Exit``."""
+    """Run resumable upload with a Rich spinner; map auth/upload failures to ``typer.Exit``.
+
+    When ``json_output`` is True, human-readable error lines are written to stderr as plain text.
+    If ``VIDGET_LOG_FORMAT=json`` is also set, JSON log lines may appear on the same stream; do not
+    assume stderr is only JSON.
+    """
     try:
         with console.status("Uploading to YouTube…"):
             return publisher.upload(publish_config, auth_config)

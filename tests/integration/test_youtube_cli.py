@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.auth.exceptions import GoogleAuthError
 from pydantic import SecretStr
 from typer.testing import CliRunner
 
@@ -68,6 +69,36 @@ class TestAuthLogin:
         cfg = AppConfig.load()
         assert cfg.auth.refresh_token is not None
         assert cfg.auth.refresh_token.get_secret_value() == "saved_token"
+
+    def test_login_exits_1_on_google_auth_error(self) -> None:
+        with patch(
+            "jre_vidget.cli_common.auth.login_browser",
+            side_effect=GoogleAuthError("access denied"),
+        ):
+            result = runner.invoke(
+                app,
+                ["auth", "login"],
+                input="cid\ncsecret\n",
+            )
+        assert result.exit_code == 1
+        combined = (result.stdout or "") + (result.stderr or "")
+        assert "login failed" in combined.lower()
+        assert "access denied" in combined.lower()
+
+    def test_login_exits_1_on_unexpected_exception(self) -> None:
+        with patch(
+            "jre_vidget.cli_common.auth.login_browser",
+            side_effect=RuntimeError("broken flow"),
+        ):
+            result = runner.invoke(
+                app,
+                ["auth", "login"],
+                input="cid\ncsecret\n",
+            )
+        assert result.exit_code == 1
+        combined = (result.stdout or "") + (result.stderr or "")
+        assert "login failed" in combined.lower()
+        assert "broken flow" in combined.lower()
 
 
 # ---------------------------------------------------------------------------
