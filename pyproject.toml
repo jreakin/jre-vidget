@@ -23,7 +23,7 @@ dev = [
     "pytest>=8",
     "pytest-cov>=4",
     "ruff>=0.4",
-    "mypy>=1.9",
+    "ty>=0.0.0a1",
 ]
 
 [project.scripts]
@@ -41,15 +41,22 @@ ignore = ["E501"]
 # Typer uses Option()/Argument() in parameter defaults by design.
 "src/jre_vidget/cli.py" = ["B008"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-ignore_missing_imports = true
+[tool.ty]
 
-[[tool.mypy.overrides]]
-module = "jre_vidget.auth"
-# google-auth / oauth2lib are runtime-typed but not fully stubbed for strict mypy
-disable_error_code = ["no-untyped-call"]
+[tool.ty.environment]
+python-version = "3.11"
+
+[[tool.ty.overrides]]
+# google-auth / googleapiclient are not fully typed; relax imports in these files only.
+include = ["src/jre_vidget/auth.py", "src/jre_vidget/publisher.py"]
+
+[tool.ty.overrides.analysis]
+replace-imports-with-any = [
+    "google.**",
+    "googleapiclient.**",
+    "google_auth_oauthlib.**",
+    "google_auth_httplib2.**",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

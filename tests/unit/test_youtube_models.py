@@ -45,7 +45,7 @@ class TestPublishConfig:
 
     def test_title_is_required(self, tmp_path: Path) -> None:
         with pytest.raises(ValidationError):
-            PublishConfig(filepath=tmp_path / "video.mp4")  # missing title
+            PublishConfig.model_validate({"filepath": tmp_path / "video.mp4"})
 
     def test_privacy_options(self, tmp_path: Path) -> None:
         filepath = tmp_path / "video.mp4"
@@ -56,10 +56,12 @@ class TestPublishConfig:
 
     def test_invalid_privacy_rejected(self, tmp_path: Path) -> None:
         with pytest.raises(ValidationError):
-            PublishConfig(
-                filepath=tmp_path / "video.mp4",
-                title="t",
-                privacy="secret",  # type: ignore[arg-type]
+            PublishConfig.model_validate(
+                {
+                    "filepath": tmp_path / "video.mp4",
+                    "title": "t",
+                    "privacy": "secret",
+                }
             )
 
     def test_remove_after_upload_flag(self, tmp_path: Path) -> None:
