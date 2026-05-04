@@ -1,49 +1,38 @@
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 """Typer CLI — delegates to engine; display via Rich in ui.py."""
-||||||| Common ancestor
-"""
-Typer CLI entry point — vidget download / batch / formats / config.
-=======
-import typer
-from rich.console import Console
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
 
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 from __future__ import annotations
 
 from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import TypeVar
-||||||| Common ancestor
-See prompts/phase-4-typer-cli.md for the full implementation spec.
-"""
-# TODO: implement per phase-4-typer-cli.md
-=======
-app = typer.Typer(
-    name="vidget",
-    help="🎬  Download & convert videos from 1000+ sites.",
-    add_completion=False,
-)
-console = Console()
+from typing import Literal, TypeVar, cast
 
+import typer
+from rich.console import Console
 
-@app.command()
-def download(url: str = typer.Argument(..., help="Video URL to download")) -> None:
-    """Download a single video."""
-    console.print(f"[bold green]Phase 1 stub:[/] would download {url}")
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
-
-
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
-from jre_vidget import checks, engine, models, ui
+from jre_vidget import auth, checks, engine, models, publisher, ui
+from jre_vidget.auth import AuthError
 from jre_vidget.models import (
     AppConfig,
     BatchJob,
     DownloadConfig,
     DownloadStatus,
     OutputFormat,
+    PublishConfig,
     Quality,
 )
+from jre_vidget.publisher import PublishError
+
+PrivacyStatus = Literal["public", "unlisted", "private"]
+_VALID_PRIVACY = frozenset({"public", "unlisted", "private"})
+
+console = Console()
+
+
+def _parse_privacy(value: str) -> PrivacyStatus:
+    if value not in _VALID_PRIVACY:
+        raise typer.BadParameter("privacy must be public, unlisted, or private")
+    return cast(PrivacyStatus, value)
+
 
 app = typer.Typer(
     name="vidget",
@@ -53,6 +42,9 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="View or edit default settings.")
 app.add_typer(config_app, name="config")
+
+auth_app = typer.Typer(help="Manage YouTube account connection.")
+app.add_typer(auth_app, name="auth")
 
 
 def version_callback(value: bool) -> None:
@@ -128,6 +120,31 @@ def download(
         help="Output directory",
     ),
     subs: bool = typer.Option(False, "--subs", help="Download subtitles if available"),
+    publish_flag: bool = typer.Option(
+        False,
+        "--publish",
+        help="Upload to YouTube after download.",
+    ),
+    pub_title: str | None = typer.Option(
+        None,
+        "--title",
+        help="YouTube title (default: scraped title).",
+    ),
+    pub_description: str = typer.Option(
+        "",
+        "--description",
+        help="YouTube description.",
+    ),
+    pub_privacy: str = typer.Option(
+        "public",
+        "--privacy",
+        help="public | unlisted | private",
+    ),
+    pub_remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Delete local file after upload.",
+    ),
 ) -> None:
     """Download a single video."""
     cfg = AppConfig.load()
@@ -135,6 +152,14 @@ def download(
     resolved_format = _resolve(out_format, cfg.format)
     resolved_output = _validate_output(_resolve(output, cfg.output_dir))
     resolved_subs = subs if subs else cfg.subtitles
+
+    video_info = None
+    if publish_flag:
+        try:
+            video_info = engine.fetch_info(url)
+        except engine.EngineError as e:
+            console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {e}")
+            video_info = None
 
     dl_cfg = DownloadConfig(
         url=url,
@@ -156,10 +181,33 @@ def download(
         raise typer.Exit(code=1) from e
 
     ui.print_result(result)
-    if result.status == DownloadStatus.SUCCESS:
-        return
+    if result.status != DownloadStatus.SUCCESS:
+        raise typer.Exit(code=1)
 
-    raise typer.Exit(code=1)
+    if publish_flag and result.filepath:
+        pub_privacy_parsed = _parse_privacy(pub_privacy)
+        resolved_title = pub_title or (video_info.title if video_info else url)
+        publish_config = PublishConfig(
+            filepath=result.filepath,
+            title=resolved_title,
+            description=pub_description,
+            privacy=pub_privacy_parsed,
+            remove_after_upload=pub_remove,
+        )
+
+        try:
+            with console.status("Uploading to YouTube…"):
+                pub_result = publisher.upload(publish_config, cfg.auth)
+        except AuthError as e:
+            console.print(f"[red]YouTube auth error:[/red] {e}")
+            raise typer.Exit(code=3) from e
+        except PublishError as e:
+            console.print(f"[red]YouTube upload failed:[/red] {e}")
+            raise typer.Exit(code=1) from e
+
+        console.print(f"[green]✓[/green] Published: {pub_result.url}")
+        if pub_result.removed_local_file:
+            console.print(f"  Local file removed: {result.filepath}")
 
 
 @app.command()
@@ -270,9 +318,88 @@ def config_reset(
         models.CONFIG_PATH.unlink()
 
     ui.print_success("✅ Config reset.")
-||||||| Common ancestor
-app = typer.Typer(name="vidget", no_args_is_help=True)
-=======
-if __name__ == "__main__":
-    app()
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
+
+
+@auth_app.command("login")
+def auth_login() -> None:
+    """Connect your YouTube account via browser OAuth."""
+    cfg = AppConfig.load()
+
+    client_id = cfg.auth.client_id or typer.prompt("Google OAuth Client ID")
+    client_secret = cfg.auth.client_secret or typer.prompt(
+        "Google OAuth Client Secret",
+        hide_input=True,
+    )
+
+    try:
+        auth_config = auth.login_browser(client_id, client_secret)
+    except Exception as e:
+        console.print(f"[red]Login failed:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+    cfg.auth = auth_config
+    cfg.save()
+    console.print("[green]✓[/green] YouTube connected successfully.")
+
+
+@auth_app.command("status")
+def auth_status() -> None:
+    """Show YouTube connection status."""
+    cfg = AppConfig.load()
+    if cfg.auth.refresh_token:
+        console.print("[green]✓[/green] YouTube  connected")
+    else:
+        console.print(
+            "[yellow]✗[/yellow] YouTube  not connected — run [bold]vidget auth login[/bold]",
+        )
+
+
+@auth_app.command("logout")
+def auth_logout() -> None:
+    """Disconnect your YouTube account."""
+    cfg = AppConfig.load()
+    auth.logout(cfg)
+    console.print("[green]✓[/green] YouTube disconnected.")
+
+
+@app.command()
+def publish(
+    filepath: Path = typer.Argument(..., help="Path to the local video file to upload."),
+    title: str | None = typer.Option(None, "--title", help="Video title (default: filename)."),
+    description: str = typer.Option("", "--description", help="Video description."),
+    privacy: str = typer.Option("public", "--privacy", help="public | unlisted | private"),
+    remove: bool = typer.Option(
+        False, "--remove", help="Delete local file after successful upload."
+    ),
+) -> None:
+    """Upload a local video file to your YouTube channel."""
+    cfg = AppConfig.load()
+
+    if not filepath.exists():
+        console.print(f"[red]File not found:[/red] {filepath}")
+        raise typer.Exit(code=1)
+
+    resolved_title = title or filepath.stem
+    privacy_parsed = _parse_privacy(privacy)
+
+    publish_config = PublishConfig(
+        filepath=filepath,
+        title=resolved_title,
+        description=description,
+        privacy=privacy_parsed,
+        remove_after_upload=remove,
+    )
+
+    try:
+        with console.status("Uploading to YouTube…"):
+            result = publisher.upload(publish_config, cfg.auth)
+    except AuthError as e:
+        console.print(f"[red]Auth error:[/red] {e}")
+        raise typer.Exit(code=3) from e
+    except PublishError as e:
+        console.print(f"[red]Upload failed:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+    console.print(f"[green]✓[/green] Published: {result.url}")
+    if result.removed_local_file:
+        console.print(f"  Local file removed: {filepath}")
