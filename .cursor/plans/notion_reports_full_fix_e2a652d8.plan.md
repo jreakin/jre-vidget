@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: p2-tests-workflow
     content: "P2-TEST-007: test_ui, test_checks, CLI config/auth tests; P2-ARCH-005 + schemaVersion: vidget history append + publish.yml"
-    status: pending
+    status: completed
   - id: rf-complexity-cleanup
     content: RF-COMPLEX-03 download retry extract; RF-COMPLEX-02 ProgressTracker; RF-COMPLEX-01+SMELL-05 PublishOptions + decompose _publish_after_download; RF-DEAD-01 test -> None
     status: pending

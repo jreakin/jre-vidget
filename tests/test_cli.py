@@ -7,10 +7,23 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+from pydantic import SecretStr
 from typer.testing import CliRunner
 
+from jre_vidget import auth
+from jre_vidget import config as vidget_config
+from jre_vidget import history as history_mod
 from jre_vidget.cli import _resolve_download_config, app
-from jre_vidget.models import AppConfig, BatchJob, DownloadResult, DownloadStatus, VideoInfo
+from jre_vidget.models import (
+    AppConfig,
+    AuthConfig,
+    BatchJob,
+    DownloadResult,
+    DownloadStatus,
+    Quality,
+    VideoInfo,
+)
 
 runner = CliRunner()
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
@@ -161,3 +174,83 @@ def test_batch_json_stdout(tmp_path: Path) -> None:
     rows = json.loads(result.stdout)
     assert len(rows) == 1
     assert rows[0]["url"] == "https://a.com"
+
+
+def test_config_set_quality_persists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    result = runner.invoke(app, ["config", "set", "--quality", "720p"])
+    assert result.exit_code == 0
+    loaded = AppConfig.load()
+    assert loaded.quality == Quality.P720
+
+
+def test_config_reset_yes_removes_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.json"
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(AppConfig().model_dump_json(), encoding="utf-8")
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    result = runner.invoke(app, ["config", "reset", "--yes"])
+    assert result.exit_code == 0
+    assert not cfg_path.exists()
+
+
+def test_auth_status_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    cfg = AppConfig(
+        auth=AuthConfig(refresh_token=SecretStr("not-empty")),
+    )
+    cfg.save()
+    result = runner.invoke(app, ["auth", "status"])
+    assert result.exit_code == 0
+    assert "connected" in result.stdout.lower()
+
+
+def test_auth_status_not_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    AppConfig().save()
+    result = runner.invoke(app, ["auth", "status"])
+    assert result.exit_code == 0
+    assert "not connected" in result.stdout.lower()
+
+
+def test_auth_logout_invokes_logout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    AppConfig(
+        auth=AuthConfig(refresh_token=SecretStr("rt")),
+    ).save()
+    with patch("jre_vidget.cli.auth.logout", wraps=auth.logout) as wrapped:
+        result = runner.invoke(app, ["auth", "logout"])
+    assert result.exit_code == 0
+    wrapped.assert_called_once()
+
+
+def test_history_append_cli(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text('{"uploads": []}', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "history",
+            "append",
+            "--file",
+            str(hist),
+            "--video-id",
+            "abc123",
+            "--title",
+            "T",
+            "--source-url",
+            "https://youtu.be/x",
+            "--privacy",
+            "public",
+            "--run-id",
+            "99",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(hist.read_text(encoding="utf-8"))
+    assert data["schemaVersion"] == history_mod.UPLOADS_SCHEMA_VERSION
+    assert data["uploads"][0]["video_id"] == "abc123"

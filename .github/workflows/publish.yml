@@ -89,32 +89,7 @@ jobs:
           INPUT_URL: ${{ inputs.url }}
           INPUT_PRIVACY: ${{ inputs.privacy }}
           RUN_ID: ${{ github.run_id }}
-        run: |
-          python3 <<'PY'
-          import datetime
-          import json
-          import os
-
-          path = "uploads.json"
-          with open(path) as f:
-              data = json.load(f)
-
-          video_id = os.environ["VIDEO_ID"]
-          title = os.environ.get("INPUT_TITLE") or "untitled"
-          record = {
-              "video_id": video_id,
-              "url": f"https://youtube.com/watch?v={video_id}",
-              "title": title,
-              "source_url": os.environ["INPUT_URL"],
-              "privacy": os.environ["INPUT_PRIVACY"],
-              "uploaded_at": datetime.datetime.utcnow().isoformat() + "Z",
-              "run_id": os.environ["RUN_ID"],
-          }
-          data["uploads"].insert(0, record)
-
-          with open(path, "w") as f:
-              json.dump(data, f, indent=2)
-          PY
+        run: uv run vidget history append --file uploads.json
 
       - name: Commit uploads.json
         if: steps.publish.outputs.video_id != ''
