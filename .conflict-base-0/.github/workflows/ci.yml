@@ -1,0 +1,87 @@
+name: CI
+
+# Tier behaviour:
+#   push (any branch)   → quality checks only (fast gate, ~2 min)
+#   pull_request        → quality + full test matrix + coverage report
+#   workflow_call       → caller decides; quality always runs, tests on PR
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Tier 1: always — fast quality gate (push + PR) ──────────────────────
+  quality:
+    uses: ./.github/workflows/ci-quality.yml
+    permissions:
+      contents: read
+
+  # ── Tier 2: PR only — full test matrix + coverage ───────────────────────
+  tests:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_call'
+    uses: ./.github/workflows/ci-tests.yml
+    permissions:
+      contents: read
+
+  # ── PR metadata (feeds ci-report.yml via workflow_run) ──────────────────
+  save-pr-meta:
+    name: Save PR Metadata
+    if: always() && github.event_name == 'pull_request'
+    needs: [quality, tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write metadata
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          QUALITY: ${{ needs.quality.result }}
+          TESTS: ${{ needs.tests.result }}
+        run: |
+          mkdir -p pr-meta
+          echo "$PR_NUMBER"  > pr-meta/pr_number
+          echo "$QUALITY"    > pr-meta/quality_result
+          echo "$TESTS"      > pr-meta/tests_result
+
+      - name: Upload PR metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-meta
+          path: pr-meta/
+          retention-days: 1
+
+  # ── CI gate — required status check ─────────────────────────────────────
+  ci-status:
+    name: CI Gate
+    needs: [quality, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check quality passed
+        shell: bash
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          TESTS: ${{ needs.tests.result || 'skipped' }}
+        run: |
+          echo "Tier:    ${{ github.event_name }}"
+          echo "Quality: $QUALITY"
+          echo "Tests:   $TESTS"
+          if [[ "$QUALITY" != "success" ]]; then
+            echo "::error::Quality checks failed"
+            exit 1
+          fi
+          # On PRs, tests must also pass
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "$TESTS" != "success" ]]; then
+            echo "::error::Tests failed on pull request"
+            exit 1
+          fi

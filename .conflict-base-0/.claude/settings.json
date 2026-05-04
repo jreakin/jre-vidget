@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-print-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/env-leak-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/domain-purity-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/sql-injection-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/router-boundary-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

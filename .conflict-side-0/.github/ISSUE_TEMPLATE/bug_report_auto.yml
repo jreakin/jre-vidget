@@ -1,0 +1,32 @@
+name: Automated error report
+description: Filed automatically by the publish workflow when a job fails.
+labels: ["bug", "reported-by-clone"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue was filed automatically. A cloner's publish workflow failed.
+        No credentials or personal information are included.
+  - type: input
+    id: workflow_run
+    attributes:
+      label: Workflow run URL
+      placeholder: "https://github.com/..."
+    validations:
+      required: true
+  - type: textarea
+    id: error_output
+    attributes:
+      label: Error output
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: runner_os
+    attributes:
+      label: Runner OS
+  - type: input
+    id: vidget_version
+    attributes:
+      label: vidget version
