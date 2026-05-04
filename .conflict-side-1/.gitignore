@@ -42,6 +42,9 @@ Thumbs.db
 # Hypothesis database
 .hypothesis/
 
+# Local CLI / download smoke tests
+tmp/
+
 # Downloaded media — never commit video/audio files
 *.mp4
 *.mkv

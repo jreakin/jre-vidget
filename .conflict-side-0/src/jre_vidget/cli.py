@@ -19,7 +19,7 @@ from typing import TypeVar
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 import typer
 
-from jre_vidget import engine, ui
+from jre_vidget import checks, engine, models, ui
 from jre_vidget.models import (
     AppConfig,
     BatchJob,
@@ -66,6 +66,28 @@ app.add_typer(config_app, name="config")
 
 auth_app = typer.Typer(help="Manage YouTube account connection.")
 app.add_typer(auth_app, name="auth")
+
+
+def version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"vidget {pkg_version('jre-vidget')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Global options; runs before every subcommand."""
+    if ctx.invoked_subcommand != "config":
+        checks.check_dependencies()
 
 
 def version_callback(value: bool) -> None:
@@ -506,7 +528,7 @@ def publish(
     cfg = AppConfig.load()
     resolved_quality = _resolve(quality, cfg.quality)
     resolved_format = _resolve(out_format, cfg.format)
-    resolved_output = _resolve(output, cfg.output_dir)
+    resolved_output = _validate_output(_resolve(output, cfg.output_dir))
     resolved_subs = subs if subs else cfg.subtitles
 
     dl_cfg = DownloadConfig(
@@ -521,6 +543,9 @@ def publish(
     try:
         with progress_ctx:
             result = engine.download(dl_cfg, progress_hook=hook)
+    except KeyboardInterrupt:
+        ui.print_error("Download cancelled.", "Ctrl-C received.")
+        raise typer.Exit(code=130) from None
     except engine.EngineError as e:
         ui.print_error("Error", str(e))
         raise typer.Exit(code=1) from e
@@ -549,17 +574,22 @@ def batch(
     ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
+    out_dir = _validate_output(_resolve(output, cfg.output_dir))
     base = DownloadConfig(
         url="",
         quality=_resolve(quality, cfg.quality),
         format=_resolve(out_format, cfg.format),
-        output_dir=_resolve(output, cfg.output_dir),
+        output_dir=out_dir,
         subtitles=subs if subs else cfg.subtitles,
     )
     job = BatchJob(urls=urls, config=base)
     hook, progress_ctx = ui.make_progress_hook()
-    with progress_ctx:
-        engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
+    try:
+        with progress_ctx:
+            engine.download_batch(job, progress_hook=hook, on_result=ui.print_result)
+    except KeyboardInterrupt:
+        ui.print_error("Download cancelled.", "Ctrl-C received.")
+        raise typer.Exit(code=130) from None
 
     ui.print_batch_summary(job)
 

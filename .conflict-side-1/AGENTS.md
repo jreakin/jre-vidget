@@ -399,3 +399,15 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Work in the Tests area (12 symbols) | `.claude/skills/generated/tests/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+---
+
+## Learned User Preferences
+
+- Phase work is often kicked off by referencing a phase prompt file (for example `@phase-4-typer-cli.md Implement`) instead of restating full acceptance criteria.
+
+## Learned Workspace Facts
+
+- A root-level `tmp/` directory is used for local CLI or download smoke tests; `tmp/` is listed in `.gitignore` so artifacts stay out of version control.
+- Public GitHub path used for badges and workflow links in docs is `jreakin/jre-vidget`.
+

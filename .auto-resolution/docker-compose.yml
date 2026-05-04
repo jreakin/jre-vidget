@@ -1,0 +1,12 @@
+services:
+  vidget:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Local ./downloads mirrors the /downloads volume on Railway
+      - ./downloads:/downloads
+    environment:
+      PORT: "8000"
+      DOWNLOADS_DIR: /downloads
+      VIDGET_API_KEY: dev-secret   # change this for any non-local deployment

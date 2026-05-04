@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,6 +72,31 @@ def test_download_returns_failed_on_error() -> None:
     assert result.status == DownloadStatus.FAILED
     assert result.error is not None
     assert "404" in result.error
+
+
+def test_download_retries_then_succeeds(tmp_path: Path) -> None:
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path, retries=2)
+    call_count = 0
+
+    def download_side_effect(_urls: list[str]) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise DownloadError("transient")
+        return None
+
+    with (
+        patch("yt_dlp.YoutubeDL") as MockYDL,
+        patch("jre_vidget.engine.time.sleep") as mock_sleep,
+    ):
+        instance = MagicMock()
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert call_count == 3
+    assert mock_sleep.call_count == 2
 
 
 def test_download_batch_never_raises_on_engine_error() -> None:
