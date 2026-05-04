@@ -12,6 +12,11 @@ Add the ability to authorize vidget against a YouTube channel and publish downlo
 videos directly — either as a one-step `vidget download URL --publish` or as a standalone
 `vidget publish file.mp4` command operating on any local file.
 
+**V1 scope:** browser-based OAuth only (personal YouTube channels). Service account
+support is deferred to V2 — the YouTube Data API v3 does not permit service accounts
+to upload to standard personal/brand channels without Google Workspace domain-wide
+delegation, which is out of scope here.
+
 ---
 
 ## New Files
@@ -25,7 +30,7 @@ videos directly — either as a one-step `vidget download URL --publish` or as a
 
 | File | Change |
 |------|--------|
-| `src/jre_vidget/models.py` | Add `AuthConfig`, `PublishConfig`, `PublishResult`, `AuthMode` |
+| `src/jre_vidget/models.py` | Add `AuthConfig`, `PublishConfig`, `PublishResult` |
 | `src/jre_vidget/cli.py` | Add `auth` subcommand group, `publish` command, `--publish` flag on `download` |
 | `pyproject.toml` | Add `google-api-python-client`, `google-auth-oauthlib`, `google-auth-httplib2` |
 
@@ -34,34 +39,37 @@ videos directly — either as a one-step `vidget download URL --publish` or as a
 ## Models (`models.py`)
 
 ```python
-class AuthMode(StrEnum):
-    BROWSER = "browser"
-    SERVICE_ACCOUNT = "service_account"
-
 class AuthConfig(BaseModel):
-    mode: AuthMode = AuthMode.BROWSER
     client_id: str | None = None
-    client_secret: str | None = None
-    refresh_token: str | None = None        # persisted to ~/.vidget/config.json
-    service_account_path: Path | None = None
+    client_secret: str | None = None    # see Security note below
+    refresh_token: str | None = None    # persisted to ~/.vidget/config.json
 
 class PublishConfig(BaseModel):
     filepath: Path
-    title: str                              # defaults to VideoInfo.title
+    title: str                          # required — populated from VideoInfo.title by CLI
     description: str = ""
     privacy: Literal["public", "unlisted", "private"] = "public"
     remove_after_upload: bool = False
 
 class PublishResult(BaseModel):
     video_id: str
-    url: str                                # https://youtube.com/watch?v={video_id}
+    url: str                            # https://youtube.com/watch?v={video_id}
     title: str
     privacy: str
     removed_local_file: bool = False
 ```
 
-`AuthConfig` is embedded in `AppConfig` so YouTube credentials persist to
-`~/.vidget/config.json` alongside existing preferences. No separate credential file.
+`AuthConfig` is embedded in `AppConfig` so credentials persist to `~/.vidget/config.json`
+alongside existing preferences.
+
+**Security note on `client_secret`:** For OAuth "installed app" flows, the client secret
+is not a high-value credential — it cannot be used to access user data without the user's
+explicit consent and a valid refresh token. Google's own guidance acknowledges that
+client secrets in installed apps cannot be kept truly secret. Storage in `~/.vidget/config.json`
+(readable only by the file owner) is an acceptable tradeoff for a personal CLI tool,
+consistent with how other personal CLI tools handle OAuth credentials. Users who want
+stricter isolation can set `VIDGET_CLIENT_ID` and `VIDGET_CLIENT_SECRET` env vars — these
+take precedence over the config file if set.
 
 ---
 
@@ -72,23 +80,27 @@ Pure credential management — no CLI, no Rich, no YouTube video data.
 ### Public API
 
 ```python
+class AuthError(Exception):
+    """Raised when credentials are missing, invalid, or cannot be refreshed."""
+
 def login_browser(client_id: str, client_secret: str) -> AuthConfig
-def login_service_account(key_path: Path) -> AuthConfig
 def get_credentials(auth: AuthConfig) -> google.oauth2.credentials.Credentials
-def logout() -> None
+def logout(cfg: AppConfig) -> AppConfig
 ```
+
+Exceptions are caught in `cli.py` as `auth.AuthError`.
 
 ### Behaviour
 
 - **`login_browser`** — starts a local HTTP server on port 8080, opens the Google OAuth
   consent URL via `webbrowser.open()`, waits for the redirect callback, exchanges the
-  authorization code for tokens. Stores `refresh_token` in `AppConfig`.
-- **`login_service_account`** — validates the JSON key file exists and has the correct
-  shape. Stores the path in `AppConfig`; credentials are referenced, not copied.
+  authorization code for tokens. Returns an `AuthConfig` with `refresh_token` populated.
+  The caller (`cli.py`) is responsible for persisting to `AppConfig`.
 - **`get_credentials`** — the single entry point for `publisher.py`. Returns valid,
-  refreshed credentials regardless of auth mode. Handles token refresh transparently.
-  Raises `AuthError` if credentials are missing or refresh fails.
-- **`logout`** — clears `refresh_token` and `service_account_path` from `AppConfig`.
+  refreshed credentials. Handles token refresh transparently using the stored
+  `refresh_token`. Raises `AuthError` if credentials are missing or refresh fails.
+- **`logout(cfg)`** — clears `client_id`, `client_secret`, and `refresh_token` from the
+  passed `AppConfig`, calls `cfg.save()`, and returns the updated config.
 
 ### OAuth Scope
 
@@ -96,16 +108,9 @@ def logout() -> None
 
 ### Token Storage
 
-`refresh_token` stored plaintext in `~/.vidget/config.json`. Consistent with how
-`gh`, `gcloud`, and other CLI tools handle OAuth tokens. No keychain dependency;
-works in Docker with a mounted config volume.
-
-### Exceptions
-
-```python
-class AuthError(Exception):
-    """Raised when credentials are missing, invalid, or cannot be refreshed."""
-```
+`refresh_token` stored in `~/.vidget/config.json`. `client_id` and `client_secret` can
+alternatively be provided via `VIDGET_CLIENT_ID` / `VIDGET_CLIENT_SECRET` environment
+variables, which take precedence over the config file.
 
 ---
 
@@ -116,37 +121,43 @@ Pure upload logic — no CLI, no Rich, no auth management. Mirrors `engine.py` i
 ### Public API
 
 ```python
-def upload(config: PublishConfig, auth: AuthConfig) -> PublishResult
+class PublishError(Exception):
+    """Raised when the YouTube API rejects the upload or returns an error."""
+
+UploadProgressHook = Callable[[int, int], None]  # (bytes_uploaded, total_bytes)
+
+def upload(
+    config: PublishConfig,
+    auth: AuthConfig,
+    progress_hook: UploadProgressHook | None = None,
+) -> PublishResult
 ```
+
+Exceptions are caught in `cli.py` as `publisher.PublishError`.
 
 ### Upload Flow
 
 1. Call `auth.get_credentials(auth)` — raises `AuthError` if not configured
-2. Build `MediaFileUpload(filepath, resumable=True)` — handles large files (multi-GB HLS)
+2. Build `MediaFileUpload(config.filepath, resumable=True)` using `httplib2` transport
 3. Call `youtube.videos().insert()` with:
    - `snippet.title` = `config.title`
    - `snippet.description` = `config.description`
    - `status.privacyStatus` = `config.privacy`
-4. On success → return `PublishResult(video_id, url, title, privacy)`
-5. If `config.remove_after_upload` → delete local file **only after** `video_id` confirmed
-6. On `HttpError` → map to `PublishError` with API message + retry hint
+4. During chunked upload, call `progress_hook(bytes_uploaded, total_bytes)` after each chunk
+   if `progress_hook` is not None
+5. On success → return `PublishResult(video_id, url, title, privacy)`
+6. If `config.remove_after_upload` → delete local file **only after** `video_id` confirmed
+7. On `HttpError` → map to `PublishError` with API message + retry hint
 
 ### Resumable Uploads
 
 `resumable=True` on `MediaFileUpload` enables chunked upload with automatic resume on
-connection drop. Essential for large video files over unreliable connections.
+connection drop. Essential for large video files (multi-GB HLS clips).
 
-### Progress Hook
+### HTTP Transport
 
-Upload progress (bytes uploaded / total) is passed as a callback from `cli.py` — the
-same pattern as `engine.py`'s `progress_hook`. `publisher.py` never imports Rich or Typer.
-
-### Exceptions
-
-```python
-class PublishError(Exception):
-    """Raised when the YouTube API rejects the upload or returns an error."""
-```
+Use `httplib2` (via `google-auth-httplib2`) — the conventional default for
+`google-api-python-client`. Do not use the `requests` transport.
 
 ---
 
@@ -155,10 +166,8 @@ class PublishError(Exception):
 ### Auth Subcommand Group
 
 ```bash
-vidget auth login                           # browser OAuth (local machine)
-vidget auth login --mode service-account \
-  --key /path/to/service-account.json       # service account (server/Docker)
-vidget auth status                          # show connection + quota info
+vidget auth login                           # browser OAuth
+vidget auth status                          # show connection + channel info
 vidget auth logout                          # clear stored credentials
 ```
 
@@ -169,9 +178,11 @@ vidget auth logout                          # clear stored credentials
 
 **`vidget auth status` output:**
 ```
-YouTube  ✓ connected  (browser · token valid)
-         Channel: John Reakin · quota used today: 892 / 10,000 units
+YouTube  ✓ connected  (token valid)
+         Channel: John Reakin
 ```
+
+Note: YouTube API quota is not queryable via the Data API v3 — quota display is omitted.
 
 ### Publish Command
 
@@ -192,11 +203,14 @@ vidget download "URL" --publish --title "Override" --privacy private --remove
 ```
 
 **Flow when `--publish` is set:**
-1. Run download normally → `DownloadResult`
-2. If download succeeded → auto-populate `PublishConfig.title` from `VideoInfo.title`
-3. Call `publisher.upload(publish_config, auth_config)`
-4. Print YouTube URL on success: `✓ https://youtube.com/watch?v=abc123`
-5. If `--remove` and upload succeeded → delete local file
+1. Call `engine.fetch_info(url)` → `VideoInfo` (gets title before download starts)
+2. Run `engine.download(config)` normally → `DownloadResult`
+3. If download succeeded → build `PublishConfig(title=video_info.title, ...)`,
+   override title if `--title` was passed explicitly
+4. Call `publisher.upload(publish_config, auth_config, progress_hook)`
+5. Print YouTube URL on success: `✓ https://youtube.com/watch?v=abc123`
+6. If `--remove` and upload succeeded → delete local file
+   (`--remove` applies only to the upload step, not the download step)
 
 ---
 
@@ -211,7 +225,7 @@ vidget download "URL" --publish --title "Override" --privacy private --remove
 | API rejection | `1` | YouTube API message surfaced directly |
 | Upload interrupted | `4` | `"Upload interrupted — safe to retry (resumable)."` |
 
-Exit codes follow the semantic table in `AGENTS.md`: `3` = auth error, `4` = transient/retry.
+Exit codes follow the semantic table in `AGENTS.md` → Agentic CLI Design Principles section.
 
 ---
 
@@ -240,7 +254,9 @@ with patch("jre_vidget.publisher.build") as mock_build:
 
 # Unit — auth.py
 with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow:
-    ...
+    mock_flow.from_client_config.return_value.run_local_server.return_value = mock_creds
+    auth_config = auth.login_browser("client_id", "client_secret")
+    assert auth_config.refresh_token is not None
 
 # Integration — CLI
 with patch("jre_vidget.cli.publisher.upload") as mock_upload:
@@ -259,18 +275,14 @@ Before running `vidget auth login`, the user must:
 
 1. Create a Google Cloud project at [console.cloud.google.com](https://console.cloud.google.com)
 2. Enable the **YouTube Data API v3**
-3. Create **OAuth 2.0 credentials** (Desktop App type) → download client ID + secret
-4. Run `vidget auth login` and enter the client ID and secret when prompted
-
-For service account mode (server/Docker):
-1. Create a service account in the Google Cloud project
-2. Download the JSON key file
-3. Run `vidget auth login --mode service-account --key /path/to/key.json`
+3. Create **OAuth 2.0 credentials** (type: Desktop App) → copy Client ID and Client Secret
+4. Run `vidget auth login` → enter Client ID and Client Secret when prompted
 
 ---
 
-## Out of Scope
+## Out of Scope (V1)
 
+- Service account auth (requires Google Workspace — deferred to V2)
 - Scheduling / publishing at a future time
 - Thumbnail upload
 - Playlist assignment

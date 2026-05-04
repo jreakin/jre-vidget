@@ -1,3 +1,3 @@
-ancestorEntries = [".github/workflows/ci-quality.yml"]
-ourEntries = [".github/workflows/ci-quality.yml"]
-theirEntries = [".github/workflows/ci-quality.yml"]
+ancestorEntries = [".cursor/hooks/state/continual-learning.json"]
+ourEntries = [".cursor/hooks/state/continual-learning.json", "tests/unit/test_youtube_models.py"]
+theirEntries = [".cursor/hooks/state/continual-learning.json", "tests/unit/test_youtube_models.py"]
