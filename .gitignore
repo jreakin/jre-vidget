@@ -55,36 +55,9 @@ tmp/
 *.aac
 *.wav
 *.flac
+
+# GitNexus index
 .gitnexus
-||||||| Common ancestor
-# uv
-uv.lock
-=======
-# uv — commit the lockfile for reproducible installs
-# uv.lock
 
-# Logs
-*.log
-
-# Hypothesis database
-.hypothesis/
-
-# Local CLI / download smoke tests
-tmp/
-
-# Downloaded media — never commit video/audio files
-*.mp4
-*.mkv
-*.mov
-*.webm
-*.mp3
-*.m4a
-*.aac
-*.wav
-*.flac
-<<<<<<< New base: Add GitNexus docs, Typer CLI, and Rich UI
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
-||||||| Common ancestor
-=======
-.gitnexus
->>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
+# Worker dependencies
+worker/node_modules/
