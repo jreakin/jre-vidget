@@ -7,10 +7,10 @@ todos:
     status: completed
   - id: config-module
     content: Implement jre_vidget/config.py (CONFIG_PATH, load/save); remove path I/O from models; lazy imports or migrate callers; update test monkeypatches
-    status: pending
+    status: completed
   - id: pydantic-forbid
     content: ConfigDict extra=forbid on AppConfig/DownloadConfig (and related); fix tests/fixtures
-    status: pending
+    status: completed
   - id: ytdlp-filename-hook
     content: Wrap progress hook in engine.download to capture finished filename; fallback/test
     status: pending

@@ -11,7 +11,8 @@ from typing import Literal, TypeVar, cast
 import typer
 from rich.console import Console
 
-from jre_vidget import auth, checks, engine, models, publisher, ui
+from jre_vidget import auth, checks, engine, publisher, ui
+from jre_vidget import config as vidget_config
 from jre_vidget.auth import AuthError
 from jre_vidget.models import (
     AppConfig,
@@ -380,8 +381,8 @@ def config_reset(
     if not yes and not typer.confirm("Reset all config to defaults?", default=False):
         raise typer.Exit(code=0)
 
-    if models.CONFIG_PATH.exists():
-        models.CONFIG_PATH.unlink()
+    if vidget_config.CONFIG_PATH.exists():
+        vidget_config.CONFIG_PATH.unlink()
 
     ui.print_success("✅ Config reset.")
 

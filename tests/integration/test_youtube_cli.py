@@ -30,9 +30,9 @@ class TestAuthLogin:
     def test_login_prompts_for_credentials(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         mock_auth_config = AuthConfig(
             client_id="cid",
@@ -50,9 +50,9 @@ class TestAuthLogin:
         assert "connected" in result.output.lower() or "success" in result.output.lower()
 
     def test_login_saves_credentials(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         mock_auth_config = AuthConfig(
             client_id="cid",
@@ -78,9 +78,9 @@ class TestAuthStatus:
     def test_shows_connected_when_token_present(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
@@ -93,9 +93,9 @@ class TestAuthStatus:
     def test_shows_not_connected_when_no_token(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         result = runner.invoke(app, ["auth", "status"])
         assert result.exit_code == 0
@@ -107,9 +107,9 @@ class TestAuthStatus:
 # ---------------------------------------------------------------------------
 class TestAuthLogout:
     def test_logout_clears_token(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
@@ -127,9 +127,9 @@ class TestAuthLogout:
 # ---------------------------------------------------------------------------
 class TestPublishCommand:
     def test_publish_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -153,9 +153,9 @@ class TestPublishCommand:
     def test_publish_with_custom_title(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -179,9 +179,9 @@ class TestPublishCommand:
     def test_publish_exits_3_when_not_authenticated(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -196,9 +196,9 @@ class TestPublishCommand:
     def test_publish_exits_1_on_publish_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -215,9 +215,9 @@ class TestPublishCommand:
         assert result.exit_code == 1
 
     def test_publish_privacy_flag(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -246,9 +246,9 @@ class TestDownloadWithPublish:
     def test_download_publish_calls_fetch_info_first(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
@@ -296,9 +296,9 @@ class TestDownloadWithPublish:
     def test_download_publish_uses_scraped_title(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
@@ -345,9 +345,9 @@ class TestDownloadWithPublish:
     def test_download_publish_title_override(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
@@ -396,9 +396,9 @@ class TestDownloadWithPublish:
     def test_download_without_publish_does_not_call_publisher(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()

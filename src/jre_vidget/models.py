@@ -6,15 +6,12 @@ Shared between the CLI, engine, and UI. Validation and serialization only.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, SecretStr
-
-CONFIG_PATH = Path.home() / ".vidget" / "config.json"
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class Quality(StrEnum):
@@ -63,6 +60,8 @@ class OutputFormat(StrEnum):
 class VideoFormat(BaseModel):
     """One available stream format from yt-dlp."""
 
+    model_config = ConfigDict(extra="forbid")
+
     format_id: str
     ext: str
     resolution: str | None = None
@@ -91,6 +90,8 @@ class DownloadError(Exception):
 class VideoPreview(BaseModel):
     """Metadata fetched before download — used to confirm before upload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     url: str
     title: str
     description: str
@@ -114,6 +115,8 @@ class VideoPreview(BaseModel):
 
 class VideoInfo(BaseModel):
     """Metadata for a single URL from yt-dlp."""
+
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     title: str
@@ -150,14 +153,14 @@ class VideoInfo(BaseModel):
 class DownloadConfig(BaseModel):
     """Options for a single download job."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     url: str
     quality: Quality = Quality.BEST
     format: OutputFormat = OutputFormat.MP4
     output_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads")
     subtitles: bool = False
     retries: int = Field(default=2, ge=0, le=5)
-
-    model_config = {"arbitrary_types_allowed": True}
 
     @property
     def output_template(self) -> str:
@@ -172,34 +175,17 @@ class DownloadConfig(BaseModel):
 class AuthConfig(BaseModel):
     """YouTube OAuth credentials — persisted inside AppConfig."""
 
+    model_config = ConfigDict(extra="forbid")
+
     client_id: str | None = None
     client_secret: SecretStr | None = None
     refresh_token: SecretStr | None = None
 
 
-def _secret_plain(secret: SecretStr | None) -> str | None:
-    return secret.get_secret_value() if secret is not None else None
-
-
-def _app_config_to_disk_json(cfg: AppConfig) -> str:
-    """Build JSON for ``~/.vidget/config.json`` with real secret strings (not Pydantic JSON masking)."""
-    data: dict[str, Any] = {
-        "output_dir": str(cfg.output_dir),
-        "quality": cfg.quality.value,
-        "format": cfg.format.value,
-        "subtitles": cfg.subtitles,
-        "max_concurrent": cfg.max_concurrent,
-        "auth": {
-            "client_id": cfg.auth.client_id,
-            "client_secret": _secret_plain(cfg.auth.client_secret),
-            "refresh_token": _secret_plain(cfg.auth.refresh_token),
-        },
-    }
-    return json.dumps(data, indent=2)
-
-
 class PublishConfig(BaseModel):
     """Options for a single YouTube upload job."""
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     filepath: Path
     title: str  # required — no default
@@ -211,6 +197,8 @@ class PublishConfig(BaseModel):
 class PublishResult(BaseModel):
     """Outcome of a completed YouTube upload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     video_id: str
     url: str  # https://youtube.com/watch?v=...
     title: str
@@ -221,6 +209,8 @@ class PublishResult(BaseModel):
 class AppConfig(BaseModel):
     """User preferences persisted under ~/.vidget/config.json."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     output_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads")
     quality: Quality = Quality.BEST
     format: OutputFormat = OutputFormat.MP4
@@ -228,18 +218,17 @@ class AppConfig(BaseModel):
     max_concurrent: int = 3
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
-    model_config = {"arbitrary_types_allowed": True}
-
     @classmethod
     def load(cls) -> AppConfig:
-        if CONFIG_PATH.exists():
-            return cls.model_validate_json(CONFIG_PATH.read_text(encoding="utf-8"))
-        return cls()
+        from jre_vidget import config as _app_config
+
+        return _app_config.load_app_config()
 
     def save(self) -> None:
         """Write config to disk with plaintext OAuth secrets (not ``model_dump_json`` masking)."""
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(_app_config_to_disk_json(self), encoding="utf-8")
+        from jre_vidget import config as _app_config
+
+        _app_config.save_app_config(self)
 
 
 class DownloadStatus(StrEnum):
@@ -253,6 +242,8 @@ class DownloadStatus(StrEnum):
 class DownloadResult(BaseModel):
     """Outcome of a completed download job."""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
     url: str
     status: DownloadStatus
     filepath: Path | None = None
@@ -260,11 +251,11 @@ class DownloadResult(BaseModel):
     duration_s: float | None = None
     finished_at: datetime = Field(default_factory=datetime.now)
 
-    model_config = {"arbitrary_types_allowed": True}
-
 
 class BatchJob(BaseModel):
     """Batch of URLs using one DownloadConfig."""
+
+    model_config = ConfigDict(extra="forbid")
 
     urls: list[str]
     config: DownloadConfig

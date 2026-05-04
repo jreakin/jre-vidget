@@ -30,7 +30,7 @@ def test_keyboard_interrupt_handled(tmp_path: Path) -> None:
 
 
 def test_config_reset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("jre_vidget.models.CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
     cfg_path = tmp_path / "config.json"
     cfg_path.write_text('{"output_dir": "/tmp"}', encoding="utf-8")
     result = runner.invoke(app, ["config", "reset", "--yes"])

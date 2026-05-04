@@ -105,9 +105,9 @@ class TestAppConfigEmbedding:
     def test_app_config_persists_auth(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("mytoken"))
@@ -120,9 +120,9 @@ class TestAppConfigEmbedding:
     def test_app_config_save_writes_plaintext_oauth_to_disk(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(

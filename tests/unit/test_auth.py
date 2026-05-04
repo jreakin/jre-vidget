@@ -187,9 +187,9 @@ class TestGetCredentials:
 
 class TestLogout:
     def test_clears_all_auth_fields(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(
@@ -205,9 +205,9 @@ class TestLogout:
         assert result.auth.refresh_token is None
 
     def test_saves_to_disk(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
+        import jre_vidget.config as vidget_cfg
 
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
