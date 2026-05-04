@@ -8,6 +8,7 @@ from datetime import datetime
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
+from pydantic import SecretStr
 
 from jre_vidget.models import (
     AuthConfig,
@@ -80,10 +81,12 @@ def _video_info_with_duration(draw: st.DrawFn) -> VideoInfo:
 @composite
 def _auth_config(draw: st.DrawFn) -> AuthConfig:
     text = st.text(max_size=64)
+    cs = draw(st.one_of(st.none(), text))
+    rt = draw(st.one_of(st.none(), text))
     return AuthConfig(
         client_id=draw(st.one_of(st.none(), text)),
-        client_secret=draw(st.one_of(st.none(), text)),
-        refresh_token=draw(st.one_of(st.none(), text)),
+        client_secret=SecretStr(cs) if cs is not None else None,
+        refresh_token=SecretStr(rt) if rt is not None else None,
     )
 
 
@@ -181,8 +184,9 @@ def test_video_format_display_size(filesize: int | None) -> None:
 
 @settings(max_examples=50, deadline=None)
 @given(_auth_config())
-def test_auth_config_json_roundtrip(cfg: AuthConfig) -> None:
-    restored = AuthConfig.model_validate_json(cfg.model_dump_json())
+def test_auth_config_python_dump_roundtrip(cfg: AuthConfig) -> None:
+    """``model_dump_json`` masks SecretStr; in-memory dump preserves secrets."""
+    restored = AuthConfig.model_validate(cfg.model_dump(mode="python"))
     assert restored == cfg
 
 

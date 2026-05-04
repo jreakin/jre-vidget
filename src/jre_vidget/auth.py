@@ -18,6 +18,7 @@ from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from pydantic import SecretStr
 
 from jre_vidget.models import AppConfig, AuthConfig
 
@@ -49,10 +50,11 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
     creds = flow.run_local_server(port=8080)
 
+    rt = creds.refresh_token
     return AuthConfig(
         client_id=client_id,
-        client_secret=client_secret,
-        refresh_token=creds.refresh_token,
+        client_secret=SecretStr(client_secret),
+        refresh_token=SecretStr(rt) if rt else None,
     )
 
 
@@ -67,8 +69,12 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     Raises AuthError if credentials are missing or refresh fails.
     """
     client_id = os.getenv("VIDGET_CLIENT_ID") or auth.client_id
-    client_secret = os.getenv("VIDGET_CLIENT_SECRET") or auth.client_secret
-    refresh_token = os.getenv("VIDGET_REFRESH_TOKEN") or auth.refresh_token
+    env_secret = os.getenv("VIDGET_CLIENT_SECRET")
+    cfg_secret = auth.client_secret.get_secret_value() if auth.client_secret else None
+    client_secret = env_secret or cfg_secret
+    env_rt = os.getenv("VIDGET_REFRESH_TOKEN")
+    cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
+    refresh_token = env_rt or cfg_rt
 
     if not refresh_token or not client_id or not client_secret:
         raise AuthError(

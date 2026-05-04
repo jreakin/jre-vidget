@@ -16,9 +16,9 @@ conversion, exposed through a Typer CLI with a Rich terminal UI.
 ## Agent Scope
 
 ```
-Reads:    src/, tests/, prompts/, docs/, .env.example, pyproject.toml
-Writes:   src/, tests/, docs/
-Executes: uv, ruff, pytest, mypy, git (feature branches only)
+Reads:    src/, tests/, prompts/, docs/, web/, worker/, .env.example, pyproject.toml
+Writes:   src/, tests/, docs/, web/src/, worker/src/
+Executes: uv, ruff, pytest, ty, git (feature branches only)
 Off-limits: .env, ~/.vidget/config.json (user data), any other repository
 ```
 
@@ -227,7 +227,7 @@ A task is complete when **all** of the following are true:
 - [ ] All tests pass (`uv run pytest`)
 - [ ] No linting errors (`uv run ruff check src/`)
 - [ ] No formatting violations (`uv run ruff format --check src/`)
-- [ ] Type hints on all public functions (`uv run mypy src/ --strict`)
+- [ ] Type hints on all public functions (`uv run ty check src/`)
 
 ### ✅ Documentation Hygiene
 - [ ] Phase prompt acceptance criteria satisfied
@@ -321,10 +321,82 @@ Before beginning work on a multi-step task, explicitly state:
 3. Which modules will be touched
 4. Validation command to run at the end
 
+---
+
+## Web UI — Component Composition Rules
+
+The `web/` sub-project is a Vite + React + TypeScript SPA. These rules apply to all `.tsx` and
+`.ts` files under `web/src/`.
+
+### Hard Thresholds
+
+| Rule | Limit | Action when exceeded |
+|------|-------|----------------------|
+| `useState` hooks per component | ≤ 8 | Extract to custom hook |
+| Lines of code per component | ≤ 300 | Split into sub-components |
+| Form field `useState` | ≤ 4 | Use `useFormReducer` |
+
+### Required Shared Hooks (`web/src/hooks/`)
+
+Before creating a new state pattern, check `web/src/hooks/README.md`. Use canonical hooks:
+
+| Hook | When to use |
+|------|------------|
+| `useAsyncState<T>` | Any loading/error/data triplet |
+| `useFormReducer<T>` | 5–8 form fields with optional Zod validation |
+| `useTableFilters<T>` | Filter, sort, paginate any collection |
+| `useModal<T>` | Open/close/data for any modal dialog |
+
+### Form State Decision Tree
+
+```
+1–4 fields     → useState
+5–8 fields     → useFormReducer (web/src/hooks/use-form-reducer.ts)
+>8 fields      → React Hook Form + Zod
+```
+
+### Error UI Requirement
+
+Every `catch` block in React components **must** render `<ErrorDisplay message={...} />`.
+Silent `console.error` with no UI feedback is a bug.
+
+```tsx
+// ✅ CORRECT
+} catch (err) {
+  setError(err instanceof Error ? err.message : 'Unknown error')
+}
+// …
+{error && <ErrorDisplay message={error} onRetry={refetch} />}
+
+// ❌ WRONG
+} catch (err) {
+  console.error(err)  // user sees nothing
+}
+```
+
+### TypeScript Discipline
+
+- No `any` — use `unknown` and narrow with type guards
+- `as` assertions require a `// SAFETY:` comment explaining why narrowing isn't possible
+- Never `as unknown as T`
+- Explicit return types on all async functions
+
+### Tailwind DRY Rule
+
+Extract repeated Tailwind class combinations to `@layer components` in `web/src/index.css`
+after they appear in 3+ places.
+
+### Hook Index
+
+Always keep `web/src/hooks/README.md` current. Add a row whenever a hook is added,
+renamed, or removed.
+
+---
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **jre-vidget** (731 symbols, 1006 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **jre-vidget** (1554 symbols, 2309 relationships, 37 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -420,8 +492,12 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Jre_vidget area (57 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
-| Work in the Tests area (18 symbols) | `.claude/skills/generated/tests/SKILL.md` |
+| Work in the Jre_vidget area (71 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
+| Work in the Unit area (53 symbols) | `.claude/skills/generated/unit/SKILL.md` |
+| Work in the Tests area (25 symbols) | `.claude/skills/generated/tests/SKILL.md` |
+| Work in the Integration area (17 symbols) | `.claude/skills/generated/integration/SKILL.md` |
+| Work in the Api area (16 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Cluster_9 area (3 symbols) | `.claude/skills/generated/cluster-9/SKILL.md` |
 
 <!-- gitnexus:end -->
 
@@ -436,3 +512,11 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 - A root-level `tmp/` directory is used for local CLI or download smoke tests; `tmp/` is listed in `.gitignore` so artifacts stay out of version control.
 - Public GitHub path used for badges and workflow links in docs is `jreakin/jre-vidget`.
 - Phase 15 (metadata preview and optional URL-based `publish` via GitHub Actions) is documented under `prompts/phase-15-metadata-preview/`; read `current.md` there before implementing, like earlier numbered phases.
+
+---
+
+## Notion References
+
+- Tasks DB: collection://2e97d7f5-6298-80a5-acef-000bb9796a9d
+- Project Page: https://www.notion.so/3567d7f5629881f5bd21e5cbafbab309
+- Client Page: https://www.notion.so/2f37d7f5629881bb814de76479af10db

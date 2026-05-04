@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from jre_vidget.auth import AuthError
 from jre_vidget.models import AuthConfig, PublishConfig, PublishResult
@@ -23,8 +24,8 @@ def video_file(tmp_path: Path) -> Path:
 def auth_config() -> AuthConfig:
     return AuthConfig(
         client_id="cid",
-        client_secret="csecret",
-        refresh_token="rt",
+        client_secret=SecretStr("csecret"),
+        refresh_token=SecretStr("rt"),
     )
 
 

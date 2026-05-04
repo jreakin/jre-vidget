@@ -6,12 +6,13 @@ Shared between the CLI, engine, and UI. Validation and serialization only.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 CONFIG_PATH = Path.home() / ".vidget" / "config.json"
 
@@ -172,8 +173,29 @@ class AuthConfig(BaseModel):
     """YouTube OAuth credentials — persisted inside AppConfig."""
 
     client_id: str | None = None
-    client_secret: str | None = None
-    refresh_token: str | None = None
+    client_secret: SecretStr | None = None
+    refresh_token: SecretStr | None = None
+
+
+def _secret_plain(secret: SecretStr | None) -> str | None:
+    return secret.get_secret_value() if secret is not None else None
+
+
+def _app_config_to_disk_json(cfg: AppConfig) -> str:
+    """Build JSON for ``~/.vidget/config.json`` with real secret strings (not Pydantic JSON masking)."""
+    data: dict[str, Any] = {
+        "output_dir": str(cfg.output_dir),
+        "quality": cfg.quality.value,
+        "format": cfg.format.value,
+        "subtitles": cfg.subtitles,
+        "max_concurrent": cfg.max_concurrent,
+        "auth": {
+            "client_id": cfg.auth.client_id,
+            "client_secret": _secret_plain(cfg.auth.client_secret),
+            "refresh_token": _secret_plain(cfg.auth.refresh_token),
+        },
+    }
+    return json.dumps(data, indent=2)
 
 
 class PublishConfig(BaseModel):
@@ -215,8 +237,9 @@ class AppConfig(BaseModel):
         return cls()
 
     def save(self) -> None:
+        """Write config to disk with plaintext OAuth secrets (not ``model_dump_json`` masking)."""
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(self.model_dump_json(indent=2), encoding="utf-8")
+        CONFIG_PATH.write_text(_app_config_to_disk_json(self), encoding="utf-8")
 
 
 class DownloadStatus(StrEnum):

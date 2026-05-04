@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 from typer.testing import CliRunner
 
 from jre_vidget.cli import app
@@ -35,8 +36,8 @@ class TestAuthLogin:
 
         mock_auth_config = AuthConfig(
             client_id="cid",
-            client_secret="csecret",
-            refresh_token="rt",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
         )
         with patch("jre_vidget.cli.auth.login_browser", return_value=mock_auth_config):
             result = runner.invoke(
@@ -55,8 +56,8 @@ class TestAuthLogin:
 
         mock_auth_config = AuthConfig(
             client_id="cid",
-            client_secret="csecret",
-            refresh_token="saved_token",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("saved_token"),
         )
         with patch("jre_vidget.cli.auth.login_browser", return_value=mock_auth_config):
             runner.invoke(
@@ -66,7 +67,8 @@ class TestAuthLogin:
             )
 
         cfg = AppConfig.load()
-        assert cfg.auth.refresh_token == "saved_token"
+        assert cfg.auth.refresh_token is not None
+        assert cfg.auth.refresh_token.get_secret_value() == "saved_token"
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ class TestAuthStatus:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         result = runner.invoke(app, ["auth", "status"])
@@ -110,7 +112,7 @@ class TestAuthLogout:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         result = runner.invoke(app, ["auth", "logout"])
@@ -133,7 +135,7 @@ class TestPublishCommand:
         video.write_bytes(b"data")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         mock_result = PublishResult(
@@ -159,7 +161,7 @@ class TestPublishCommand:
         video.write_bytes(b"data")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         with patch("jre_vidget.cli.publisher.upload") as mock_upload:
@@ -202,7 +204,7 @@ class TestPublishCommand:
         video.write_bytes(b"data")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         from jre_vidget.publisher import PublishError
@@ -221,7 +223,7 @@ class TestPublishCommand:
         video.write_bytes(b"data")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         with patch("jre_vidget.cli.publisher.upload") as mock_upload:
@@ -249,7 +251,7 @@ class TestDownloadWithPublish:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         fake_file = tmp_path / "video.mp4"
@@ -299,7 +301,7 @@ class TestDownloadWithPublish:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         fake_file = tmp_path / "video.mp4"
@@ -348,7 +350,7 @@ class TestDownloadWithPublish:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
         fake_file = tmp_path / "video.mp4"

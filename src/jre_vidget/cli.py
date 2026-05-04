@@ -392,7 +392,8 @@ def auth_login() -> None:
     cfg = AppConfig.load()
 
     client_id = cfg.auth.client_id or typer.prompt("Google OAuth Client ID")
-    client_secret = cfg.auth.client_secret or typer.prompt(
+    stored_secret = cfg.auth.client_secret.get_secret_value() if cfg.auth.client_secret else None
+    client_secret = stored_secret or typer.prompt(
         "Google OAuth Client Secret",
         hide_input=True,
     )
@@ -412,7 +413,8 @@ def auth_login() -> None:
 def auth_status() -> None:
     """Show YouTube connection status."""
     cfg = AppConfig.load()
-    if cfg.auth.refresh_token:
+    has_rt = bool(cfg.auth.refresh_token.get_secret_value() if cfg.auth.refresh_token else "")
+    if has_rt:
         console.print("[green]✓[/green] YouTube  connected")
     else:
         console.print(

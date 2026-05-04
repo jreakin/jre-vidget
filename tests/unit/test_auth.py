@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from jre_vidget.auth import AuthError, get_credentials, login_browser, logout
 from jre_vidget.models import AppConfig, AuthConfig
@@ -24,8 +25,10 @@ class TestLoginBrowser:
             result = login_browser("my-client-id", "my-client-secret")
 
         assert result.client_id == "my-client-id"
-        assert result.client_secret == "my-client-secret"
-        assert result.refresh_token == "rt_abc123"
+        assert result.client_secret is not None
+        assert result.client_secret.get_secret_value() == "my-client-secret"
+        assert result.refresh_token is not None
+        assert result.refresh_token.get_secret_value() == "rt_abc123"
 
     def test_flow_called_with_correct_scope(self):
         mock_creds = MagicMock()
@@ -60,8 +63,8 @@ class TestGetCredentials:
     def test_returns_credentials_when_configured(self):
         auth = AuthConfig(
             client_id="cid",
-            client_secret="csecret",
-            refresh_token="rt",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
         )
         mock_creds = MagicMock()
         mock_creds.valid = True
@@ -73,7 +76,7 @@ class TestGetCredentials:
         assert creds is mock_creds
 
     def test_raises_auth_error_when_no_refresh_token(self):
-        auth = AuthConfig(client_id="cid", client_secret="csecret")
+        auth = AuthConfig(client_id="cid", client_secret=SecretStr("csecret"))
         with pytest.raises(AuthError, match="Run 'vidget auth login'"):
             get_credentials(auth)
 
@@ -83,7 +86,11 @@ class TestGetCredentials:
             get_credentials(auth)
 
     def test_refreshes_expired_token(self):
-        auth = AuthConfig(client_id="cid", client_secret="csecret", refresh_token="rt")
+        auth = AuthConfig(
+            client_id="cid",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
+        )
         mock_creds = MagicMock()
         mock_creds.valid = False
         mock_creds.expired = True
@@ -101,7 +108,11 @@ class TestGetCredentials:
     def test_raises_auth_error_on_refresh_failure(self):
         from google.auth.exceptions import RefreshError
 
-        auth = AuthConfig(client_id="cid", client_secret="csecret", refresh_token="rt")
+        auth = AuthConfig(
+            client_id="cid",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
+        )
         mock_creds = MagicMock()
         mock_creds.valid = False
         mock_creds.expired = True
@@ -121,7 +132,11 @@ class TestGetCredentials:
         monkeypatch.setenv("VIDGET_CLIENT_SECRET", "env-client-secret")
 
         # AuthConfig has different (or missing) client_id/secret
-        auth = AuthConfig(client_id="config-id", client_secret="config-secret", refresh_token="rt")
+        auth = AuthConfig(
+            client_id="config-id",
+            client_secret=SecretStr("config-secret"),
+            refresh_token=SecretStr("rt"),
+        )
         mock_creds = MagicMock()
         mock_creds.valid = True
 
@@ -138,8 +153,8 @@ class TestGetCredentials:
         monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-refresh-token")
         auth = AuthConfig(
             client_id="cid",
-            client_secret="csecret",
-            refresh_token="config-token",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("config-token"),
         )
         mock_creds = MagicMock()
         mock_creds.valid = True
@@ -179,8 +194,8 @@ class TestLogout:
         cfg = AppConfig()
         cfg.auth = AuthConfig(
             client_id="cid",
-            client_secret="csecret",
-            refresh_token="rt",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
         )
 
         result = logout(cfg)
@@ -195,7 +210,7 @@ class TestLogout:
         monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
-        cfg.auth = AuthConfig(refresh_token="rt")
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         logout(cfg)
 
         restored = AppConfig.load()

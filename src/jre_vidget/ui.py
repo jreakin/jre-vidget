@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -38,6 +39,13 @@ from jre_vidget.models import (
 
 # stderr: progress and status do not pollute stdout (agent-friendly / future --json).
 console = Console(stderr=True)
+
+
+def _config_secret_placeholder(secret: SecretStr | None) -> str:
+    """Never print secret values in the terminal."""
+    if secret is None:
+        return "—"
+    return "(set)" if secret.get_secret_value() else "—"
 
 
 def _truncate_url(url: str, max_len: int = 60) -> str:
@@ -323,6 +331,9 @@ def print_config(config: AppConfig) -> None:
     table.add_row("format", config.format.value)
     table.add_row("subtitles", str(config.subtitles))
     table.add_row("max_concurrent", str(config.max_concurrent))
+    table.add_row("auth.client_id", config.auth.client_id or "—")
+    table.add_row("auth.client_secret", _config_secret_placeholder(config.auth.client_secret))
+    table.add_row("auth.refresh_token", _config_secret_placeholder(config.auth.refresh_token))
     console.print(table)
 
 

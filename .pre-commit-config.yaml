@@ -1,0 +1,34 @@
+# Pre-commit hooks for jre-vidget
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^src/|^tests/
+      - id: ruff-format
+        files: ^src/|^tests/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: ^web/dist/|^uv\.lock$
+      - id: trailing-whitespace
+        exclude: ^web/dist/|^uv\.lock$
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  - repo: local
+    hooks:
+      - id: conventional-commit
+        name: Conventional commit message
+        language: script
+        entry: .githooks/commit-msg
+        stages: [commit-msg]
+        always_run: true
