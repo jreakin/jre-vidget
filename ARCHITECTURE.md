@@ -69,7 +69,7 @@ After exhausting retries, returns `DownloadResult(status=FAILED, error=...)` —
 - Config stored at `~/.vidget/config.json`
 - Loaded lazily by `AppConfig.load()` classmethod
 - Saved via `AppConfig.save()` using `model_dump_json()`
-- CLI flags always override config values (`_resolve(cli_value, config_value)`)
+- CLI flags override persisted defaults when set; omitted options fall back to `AppConfig` (see `_resolve_download_config` in `cli.py`)
 - `vidget config reset --yes` deletes the file
 
 ## Error Handling

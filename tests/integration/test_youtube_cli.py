@@ -42,7 +42,7 @@ class TestAuthLogin:
             client_secret=SecretStr("csecret"),
             refresh_token=SecretStr("rt"),
         )
-        with patch("jre_vidget.cli.auth.login_browser", return_value=mock_auth_config):
+        with patch("jre_vidget.cli_common.auth.login_browser", return_value=mock_auth_config):
             result = runner.invoke(
                 app,
                 ["auth", "login"],
@@ -58,7 +58,7 @@ class TestAuthLogin:
             client_secret=SecretStr("csecret"),
             refresh_token=SecretStr("saved_token"),
         )
-        with patch("jre_vidget.cli.auth.login_browser", return_value=mock_auth_config):
+        with patch("jre_vidget.cli_common.auth.login_browser", return_value=mock_auth_config):
             runner.invoke(
                 app,
                 ["auth", "login"],
@@ -123,7 +123,7 @@ class TestPublishCommand:
             title="video",
             privacy=PrivacyStatus.PUBLIC,
         )
-        with patch("jre_vidget.cli.publisher.upload", return_value=mock_result):
+        with patch("jre_vidget.cli_common.publisher.upload", return_value=mock_result):
             result = runner.invoke(app, ["publish", str(video)])
 
         assert result.exit_code == 0
@@ -137,7 +137,7 @@ class TestPublishCommand:
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
-        with patch("jre_vidget.cli.publisher.upload") as mock_upload:
+        with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
                 video_id="x",
                 url="https://youtube.com/watch?v=x",
@@ -155,7 +155,7 @@ class TestPublishCommand:
 
         from jre_vidget.auth import AuthError
 
-        with patch("jre_vidget.cli.publisher.upload", side_effect=AuthError("not authed")):
+        with patch("jre_vidget.cli_common.publisher.upload", side_effect=AuthError("not authed")):
             result = runner.invoke(app, ["publish", str(video)])
 
         assert result.exit_code == 3
@@ -170,7 +170,7 @@ class TestPublishCommand:
 
         from jre_vidget.publisher import PublishError
 
-        with patch("jre_vidget.cli.publisher.upload", side_effect=PublishError("bad")):
+        with patch("jre_vidget.cli_common.publisher.upload", side_effect=PublishError("bad")):
             result = runner.invoke(app, ["publish", str(video)])
 
         assert result.exit_code == 1
@@ -183,7 +183,7 @@ class TestPublishCommand:
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         cfg.save()
 
-        with patch("jre_vidget.cli.publisher.upload") as mock_upload:
+        with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
                 video_id="x",
                 url="https://youtube.com/watch?v=x",
@@ -225,9 +225,9 @@ class TestDownloadWithPublish:
         )
 
         with (
-            patch("jre_vidget.cli.engine.fetch_info", return_value=mock_info) as mock_fi,
-            patch("jre_vidget.cli.engine.download", return_value=mock_dl_result),
-            patch("jre_vidget.cli.publisher.upload", return_value=mock_pub_result),
+            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info) as mock_fi,
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl_result),
+            patch("jre_vidget.cli_common.publisher.upload", return_value=mock_pub_result),
         ):
             result = runner.invoke(
                 app,
@@ -263,9 +263,9 @@ class TestDownloadWithPublish:
         )
 
         with (
-            patch("jre_vidget.cli.engine.fetch_info", return_value=mock_info),
-            patch("jre_vidget.cli.engine.download", return_value=mock_dl_result),
-            patch("jre_vidget.cli.publisher.upload") as mock_pub,
+            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info),
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl_result),
+            patch("jre_vidget.cli_common.publisher.upload") as mock_pub,
         ):
             mock_pub.return_value = PublishResult(
                 video_id="x",
@@ -306,9 +306,9 @@ class TestDownloadWithPublish:
         )
 
         with (
-            patch("jre_vidget.cli.engine.fetch_info", return_value=mock_info),
-            patch("jre_vidget.cli.engine.download", return_value=mock_dl_result),
-            patch("jre_vidget.cli.publisher.upload") as mock_pub,
+            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info),
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl_result),
+            patch("jre_vidget.cli_common.publisher.upload") as mock_pub,
         ):
             mock_pub.return_value = PublishResult(
                 video_id="x",
@@ -344,8 +344,8 @@ class TestDownloadWithPublish:
         )
 
         with (
-            patch("jre_vidget.cli.engine.download", return_value=mock_dl_result),
-            patch("jre_vidget.cli.publisher.upload") as mock_pub,
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl_result),
+            patch("jre_vidget.cli_common.publisher.upload") as mock_pub,
         ):
             runner.invoke(
                 app,

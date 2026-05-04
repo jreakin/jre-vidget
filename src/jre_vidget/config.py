@@ -11,6 +11,7 @@ do not remove or fold into ``models`` without updating ``AppConfig.load`` / ``sa
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -52,4 +53,8 @@ def load_app_config() -> AppConfig:
 def save_app_config(cfg: AppConfig) -> None:
     """Write ``cfg`` to ``CONFIG_PATH`` with plaintext OAuth secrets where set."""
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        CONFIG_PATH.parent.chmod(0o700)
     CONFIG_PATH.write_text(_app_config_to_disk_json(cfg), encoding="utf-8")
+    if os.name == "posix":
+        CONFIG_PATH.chmod(0o600)

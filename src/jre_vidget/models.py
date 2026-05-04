@@ -25,6 +25,19 @@ def _format_duration(seconds: int) -> str:
     return f"{m}:{s:02d}"
 
 
+class YtdlpStatus(StrEnum):
+    """
+    yt-dlp ``progress_hooks`` payload ``status`` values handled in engine / UI.
+
+    yt-dlp may emit other statuses (e.g. post-processing); those are ignored so
+    hooks stay a no-op unless they match one of these values.
+    """
+
+    DOWNLOADING = "downloading"
+    FINISHED = "finished"
+    ERROR = "error"
+
+
 class Quality(StrEnum):
     """Supported download quality presets."""
 

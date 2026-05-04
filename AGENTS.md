@@ -397,7 +397,7 @@ renamed, or removed.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **jre-vidget** (1554 symbols, 2309 relationships, 37 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **jre-vidget** (1755 symbols, 2906 relationships, 76 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -493,12 +493,6 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Jre_vidget area (71 symbols) | `.claude/skills/generated/jre-vidget/SKILL.md` |
-| Work in the Unit area (53 symbols) | `.claude/skills/generated/unit/SKILL.md` |
-| Work in the Tests area (25 symbols) | `.claude/skills/generated/tests/SKILL.md` |
-| Work in the Integration area (17 symbols) | `.claude/skills/generated/integration/SKILL.md` |
-| Work in the Api area (16 symbols) | `.claude/skills/generated/api/SKILL.md` |
-| Work in the Cluster_9 area (3 symbols) | `.claude/skills/generated/cluster-9/SKILL.md` |
 
 <!-- gitnexus:end -->
 
@@ -506,13 +500,15 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 ## Learned User Preferences
 
-- Phase work is often kicked off by referencing a phase prompt (for example `@phase-4-typer-cli.md Implement` or `@phase-15-metadata-preview Implement`, with or without the `.md` suffix) instead of restating full acceptance criteria.
+- Phase work is often kicked off by referencing a phase prompt (for example `@phase-4-typer-cli.md Implement`, `@phase-15-metadata-preview Implement`, or `@phase-16-setup-wizard Implement`, with or without the `.md` suffix) instead of restating full acceptance criteria.
 
 ## Learned Workspace Facts
 
 - A root-level `tmp/` directory is used for local CLI or download smoke tests; `tmp/` is listed in `.gitignore` so artifacts stay out of version control.
 - Public GitHub path used for badges and workflow links in docs is `jreakin/jre-vidget`.
 - Phase 15 (metadata preview and optional URL-based `publish` via GitHub Actions) is documented under `prompts/phase-15-metadata-preview/`; read `current.md` there before implementing, like earlier numbered phases.
+- Phase 16 (setup wizard) is documented under `prompts/phase-16-setup-wizard/`; read `current.md` there before implementing (the root `prompts/phase-16-setup-wizard.md` points at that folder).
+- Dev dependencies include Hypothesis (`hypothesis>=6` in `pyproject.toml`); property-based tests are used selectively where they add value.
 
 ---
 

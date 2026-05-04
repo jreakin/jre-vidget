@@ -23,7 +23,7 @@ FAKE_PREVIEW = VideoPreview(
 
 
 def test_preview_command_renders_card() -> None:
-    with patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW):
+    with patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW):
         result = runner.invoke(app, ["preview", "https://youtube.com/watch?v=abc123"])
     assert result.exit_code == 0
     combined = (result.stdout or "") + (result.stderr or "")
@@ -32,7 +32,7 @@ def test_preview_command_renders_card() -> None:
 
 
 def test_preview_command_json_flag() -> None:
-    with patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW):
+    with patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW):
         result = runner.invoke(app, ["preview", "--json", "https://youtube.com/watch?v=abc123"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
@@ -40,7 +40,7 @@ def test_preview_command_json_flag() -> None:
 
 
 def test_preview_command_exits_1_on_error() -> None:
-    with patch("jre_vidget.cli.engine.preview", side_effect=DownloadError("bad url")):
+    with patch("jre_vidget.cli_common.engine.preview", side_effect=DownloadError("bad url")):
         result = runner.invoke(app, ["preview", "https://bad.url"])
     assert result.exit_code == 1
 
@@ -52,8 +52,8 @@ def test_publish_shows_preview_before_dispatching() -> None:
         dispatched.append(kwargs)
 
     with (
-        patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW),
-        patch("jre_vidget.cli._dispatch_publish_workflow", side_effect=fake_dispatch),
+        patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW),
+        patch("jre_vidget.cli_common._dispatch_publish_workflow", side_effect=fake_dispatch),
     ):
         result = runner.invoke(
             app,
@@ -69,8 +69,8 @@ def test_publish_shows_preview_before_dispatching() -> None:
 def test_publish_cancelled_when_not_confirmed() -> None:
     """TTY-style confirm path (CliRunner is non-TTY; simulate interactive)."""
     with (
-        patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW),
-        patch("jre_vidget.cli._is_headless", return_value=False),
+        patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW),
+        patch("jre_vidget.cli_common._is_headless", return_value=False),
     ):
         result = runner.invoke(
             app,
@@ -83,7 +83,7 @@ def test_publish_cancelled_when_not_confirmed() -> None:
 
 
 def test_publish_url_headless_requires_yes() -> None:
-    with patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW):
+    with patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW):
         result = runner.invoke(app, ["publish", "https://youtube.com/watch?v=abc123"])
     assert result.exit_code == 2
     combined = (result.stdout or "") + (result.stderr or "")

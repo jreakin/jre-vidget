@@ -8,7 +8,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from yt_dlp.utils import DownloadError
 
-from jre_vidget.engine import EngineError, build_ydl_opts, download, download_batch, fetch_info
+from jre_vidget.engine import (
+    YDL_SOCKET_TIMEOUT_SECONDS,
+    EngineError,
+    _attempt_download_once,
+    build_ydl_opts,
+    download,
+    download_batch,
+    fetch_info,
+)
 from jre_vidget.models import (
     BatchJob,
     DownloadConfig,
@@ -24,6 +32,7 @@ def test_build_ydl_opts_mp4() -> None:
     opts = build_ydl_opts(cfg)
     assert "720" in opts["format"]
     assert opts["merge_output_format"] == "mp4"
+    assert opts["socket_timeout"] == YDL_SOCKET_TIMEOUT_SECONDS
 
 
 def test_build_ydl_opts_mp3_uses_extract_audio() -> None:
@@ -110,6 +119,23 @@ def test_download_batch_preserves_url_order_with_thread_pool() -> None:
     with patch("jre_vidget.engine.download", side_effect=track):
         out = download_batch(job)
     assert [r.url for r in out.results] == urls
+
+
+def test_download_maps_non_ytdlp_exception_to_engine_error(tmp_path: Path) -> None:
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+    with (
+        patch("jre_vidget.engine._attempt_download_once", side_effect=RuntimeError("disk full")),
+        pytest.raises(EngineError, match="disk full"),
+    ):
+        download(cfg)
+
+
+def test_attempt_download_once_invokes_youtube_dl() -> None:
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        instance = MagicMock()
+        mock_ydl_cls.return_value.__enter__.return_value = instance
+        _attempt_download_once("https://example.com/watch?v=1", {"quiet": True})
+    instance.download.assert_called_once_with(["https://example.com/watch?v=1"])
 
 
 def test_download_retries_then_succeeds(tmp_path: Path) -> None:
