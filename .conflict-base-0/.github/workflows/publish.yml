@@ -124,3 +124,40 @@ jobs:
           git add uploads.json
           git diff --staged --quiet || git commit -m "chore: record upload ${{ steps.publish.outputs.video_id }}"
           git push
+
+      - name: Report failure to upstream
+        if: failure()
+        env:
+          VIDGET_REPORT_TOKEN: ${{ secrets.VIDGET_REPORT_TOKEN }}
+          GH_TOKEN: ${{ secrets.VIDGET_REPORT_TOKEN }}
+          REPORT_INPUT_URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VIDGET_REPORT_TOKEN:-}" ]; then
+            echo "::warning title=Error reporting skipped::VIDGET_REPORT_TOKEN is not set. Skipping upstream issue creation."
+            exit 0
+          fi
+          VIDGET_VERSION=$(uv run vidget --version 2>/dev/null || echo "unknown")
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY_FILE=$(mktemp)
+          trap 'rm -f "$BODY_FILE"' EXIT
+          {
+            echo "## Automated error report"
+            echo ""
+            echo "**Workflow run:** ${RUN_URL}"
+            echo "**Input URL:** \`${REPORT_INPUT_URL}\`"
+            echo "**Step that failed:** check the run logs above"
+            echo "**Runner OS:** ${RUNNER_OS}"
+            echo "**vidget version:** ${VIDGET_VERSION}"
+            echo ""
+            echo "---"
+            echo "*Filed automatically from a cloned instance of jre-vidget.*"
+            echo "*No credentials or personal information are included.*"
+          } > "$BODY_FILE"
+          gh issue create \
+            --repo jreakin/jre-vidget \
+            --title "Publish workflow failure (run #${GITHUB_RUN_NUMBER})" \
+            --body-file "$BODY_FILE" \
+            --label bug \
+            --label reported-by-clone \
+          || echo "Warning: could not create upstream issue (token may be missing or expired)"
