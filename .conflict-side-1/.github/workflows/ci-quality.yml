@@ -12,7 +12,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv sync --frozen
+      - run: uv sync --frozen --all-extras
       - run: uv run ruff check .
 
   format:
@@ -23,7 +23,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv sync --frozen
+      - run: uv sync --frozen --all-extras
       - run: uv run ruff format --check .
 
   typecheck:
@@ -34,5 +34,5 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
-      - run: uv sync --frozen
+      - run: uv sync --frozen --all-extras
       - run: uv run mypy src/
