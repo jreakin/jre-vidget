@@ -1,3 +1,3 @@
-ancestorEntries = []
-ourEntries = [".claude/hooks/domain-purity-check.sh", ".claude/hooks/sql-injection-check.sh", ".github/PULL_REQUEST_TEMPLATE.md"]
-theirEntries = [".claude/hooks/domain-purity-check.sh", ".claude/hooks/sql-injection-check.sh", ".github/PULL_REQUEST_TEMPLATE.md"]
+ancestorEntries = [".cursor/hooks/state/continual-learning.json", "pyproject.toml", "uv.lock"]
+ourEntries = [".cursor/hooks/state/continual-learning.json", "pyproject.toml", "uv.lock"]
+theirEntries = [".cursor/hooks/state/continual-learning.json", "pyproject.toml", "uv.lock"]

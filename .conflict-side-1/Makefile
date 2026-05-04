@@ -96,10 +96,10 @@ test-integration:
 coverage:
 	uv run pytest --cov=src --cov-report=term-missing
 
-# Lint (ruff + mypy)
+# Lint (ruff + ty)
 lint:
 	uv run ruff check src/ tests/
-	uv run mypy src/ --strict
+	uv run ty check src/ tests/
 
 # Auto-format source
 format:
@@ -107,7 +107,7 @@ format:
 
 # Type check only
 typecheck:
-	uv run mypy src/ --strict
+	uv run ty check src/ tests/
 
 # Check formatting without modifying (used in CI)
 format-check:
@@ -119,7 +119,7 @@ check:
 
 # Remove build artifacts and caches
 clean:
-	rm -rf dist/ build/ .venv/ __pycache__/ .pytest_cache/ .mypy_cache/ .ruff_cache/
+	rm -rf dist/ build/ .venv/ __pycache__/ .pytest_cache/ .ruff_cache/
 	find . -name "*.pyc" -delete
 	find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 
