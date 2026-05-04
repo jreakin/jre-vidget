@@ -495,11 +495,12 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
         if status == "finished":
             tid = task_ref[0]
             if tid is not None:
-                task = progress.tasks[tid]
-                total = task.total
-                if total is not None and total > 0:
-                    progress.update(tid, completed=total)
-                progress.remove_task(tid)
+                task = _progress_task_by_id(progress, tid)
+                if task is not None:
+                    total = task.total
+                    if total is not None and total > 0:
+                        progress.update(tid, completed=total)
+                    progress.remove_task(tid)
                 task_ref[0] = None
             if d.get("filename"):
                 console.print("[green]✅ Merging…[/green]")
@@ -523,9 +524,12 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
                 task_ref[0] = progress.add_task(desc, total=total_i)
                 tid = task_ref[0]
             assert tid is not None
-            if progress.tasks[tid].description != desc:
+            row = _progress_task_by_id(progress, tid)
+            if row is None:
+                return
+            if row.description != desc:
                 progress.update(tid, description=desc)
-            if total_i is not None and progress.tasks[tid].total != total_i:
+            if total_i is not None and row.total != total_i:
                 progress.update(tid, total=total_i)
             progress.update(tid, completed=min(downloaded, int(total_i) if total_i else downloaded))
 

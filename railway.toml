@@ -1,0 +1,18 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+# Railway injects $PORT automatically — do not hardcode it here
+startCommand = "uvicorn jre_vidget.server:app --host 0.0.0.0 --port $PORT --workers 1"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# ---------------------------------------------------------------------------
+# Volume — set this up in the Railway dashboard after first deploy:
+#   Service → Volumes → Add Volume → mount path: /downloads
+#
+# This ensures downloaded files survive container restarts.
+# Without a volume, files are lost whenever Railway redeploys.
+# ---------------------------------------------------------------------------
