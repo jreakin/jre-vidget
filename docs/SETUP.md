@@ -42,7 +42,26 @@ Add these four secrets to your repo
 | `VIDGET_CLIENT_ID`     | From Google Cloud Console        |
 | `VIDGET_CLIENT_SECRET` | From Google Cloud Console        |
 | `VIDGET_REFRESH_TOKEN` | From `~/.vidget/config.json`     |
-| `VIDGET_REPORT_TOKEN`  | See Phase 13 — error reporting   |
+| `VIDGET_REPORT_TOKEN`  | Optional — see below               |
+
+### Creating the `VIDGET_REPORT_TOKEN`
+
+This token lets the publish workflow automatically report failures to the upstream
+repo so the maintainer can fix them. It has the minimum possible permissions.
+
+1. Go to **GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token**
+2. Set:
+   - **Token name:** `vidget-error-reporter`
+   - **Expiration:** 1 year (or no expiration)
+   - **Resource owner:** your account
+   - **Repository access:** Only select repositories → `jreakin/jre-vidget`
+   - **Permissions:** Repository permissions → Issues → **Read and write**
+   - All other permissions: **No access**
+3. Generate and copy the token
+4. Add it as `VIDGET_REPORT_TOKEN` in your repo's secrets
+
+If you prefer not to report errors automatically, skip this secret entirely.
+The publish workflow prints a warning but does not fail if the token is absent.
 
 ## GitHub Variables (non-sensitive)
 
