@@ -9,7 +9,50 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
-from jre_vidget.models import AppConfig, DownloadStatus, OutputFormat, PrivacyStatus, Quality
+from jre_vidget.models import (
+    AppConfig,
+    DownloadConfig,
+    DownloadResult,
+    DownloadStatus,
+    OutputFormat,
+    PrivacyStatus,
+    PublishResult,
+    Quality,
+    VideoInfo,
+)
+
+
+def _warn_metadata_fetch_failed(exc: cc.engine.EngineError, *, json_output: bool) -> None:
+    if json_output:
+        sys.stderr.write(f"warning: could not fetch video info: {exc}\n")
+    else:
+        cc.console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {exc}")
+
+
+def load_video_info_for_publish(url: str, *, json_output: bool) -> VideoInfo | None:
+    """Fetch :class:`VideoInfo` for publish title fallback; logs and returns ``None`` on engine errors."""
+    try:
+        return cc.engine.fetch_info(url)
+    except cc.engine.EngineError as e:
+        _warn_metadata_fetch_failed(e, json_output=json_output)
+        return None
+
+
+def run_engine_download(dl_cfg: DownloadConfig, *, json_output: bool) -> DownloadResult:
+    """Run :func:`engine.download` with optional Rich progress (disabled for ``--json``)."""
+    with cc.progress_hook_session(json_output=json_output) as hook:
+        return cc.engine.download(dl_cfg, progress_hook=hook)
+
+
+def emit_download_json_stdout(
+    result: DownloadResult,
+    pub_result: PublishResult | None,
+) -> None:
+    """Emit the machine-readable download (and optional publish) payload."""
+    out: dict[str, object] = {"download": result.model_dump(mode="json")}
+    if pub_result is not None:
+        out["publish"] = pub_result.model_dump(mode="json")
+    typer.echo(json.dumps(out, default=str))
 
 
 def download(
@@ -74,22 +117,10 @@ def download(
 
     video_info = None
     if publish_flag:
-        try:
-            video_info = cc.engine.fetch_info(url)
-        except cc.engine.EngineError as e:
-            if json_output:
-                sys.stderr.write(f"warning: could not fetch video info: {e}\n")
-            else:
-                cc.console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {e}")
-            video_info = None
+        video_info = load_video_info_for_publish(url, json_output=json_output)
 
     try:
-        if json_output:
-            result = cc.engine.download(dl_cfg, progress_hook=None)
-        else:
-            hook, progress_ctx = cc.ui.make_progress_hook()
-            with progress_ctx:
-                result = cc.engine.download(dl_cfg, progress_hook=hook)
+        result = run_engine_download(dl_cfg, json_output=json_output)
     except KeyboardInterrupt:
         cc.ui.print_error("Download cancelled.", "Ctrl-C received.")
         raise typer.Exit(code=130) from None
@@ -125,10 +156,7 @@ def download(
         )
 
     if json_output:
-        out: dict[str, object] = {"download": result.model_dump(mode="json")}
-        if pub_result is not None:
-            out["publish"] = pub_result.model_dump(mode="json")
-        typer.echo(json.dumps(out, default=str))
+        emit_download_json_stdout(result, pub_result)
     elif pub_result is not None:
         cc.console.print(f"[green]✓[/green] Published: {pub_result.url}")
         if pub_result.removed_local_file:

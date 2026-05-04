@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase-c-structure
     content: "RF-COMPLEX-01/02, P1-ARCH-001, P2-DRY-001: _BatchWorker in engine; download.py helpers; publish_cmd remote/local; progress hook contextmanager in cli_common"
-    status: pending
+    status: completed
   - id: phase-d-models-io
     content: "RF-ARCH-01 + P1-ARCH-002: migrate AppConfig.load/save to config module; remove lazy methods from models; update auth.py, commands, tests; ARCHITECTURE load/save wording"
     status: pending

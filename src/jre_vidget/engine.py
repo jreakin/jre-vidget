@@ -14,6 +14,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -516,6 +517,60 @@ def download(
         )
 
 
+@dataclass
+class _BatchWorker:
+    """
+    Encapsulates concurrent batch download: serialized progress / on_result callbacks,
+    per-URL :func:`download`, and executor fan-out.
+    """
+
+    job: BatchJob
+    progress_hook: ProgressHook | None = None
+    on_result: Callable[[DownloadResult], None] | None = None
+    _hook_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def _safe_progress_hook(self, d: ProgressData) -> None:
+        if self.progress_hook is None:
+            return
+        with self._hook_lock:
+            self.progress_hook(d)
+
+    def _run_one(self, url: str) -> DownloadResult:
+        per_config = self.job.config.model_copy(update={"url": url})
+        try:
+            result = download(per_config, self._safe_progress_hook)
+        except EngineError as e:
+            result = DownloadResult(
+                url=url,
+                status=DownloadStatus.FAILED,
+                filepath=None,
+                error=str(e),
+                duration_s=None,
+                finished_at=datetime.now(),
+            )
+        if self.on_result is not None:
+            with self._hook_lock:
+                self.on_result(result)
+        return result
+
+    def run(self) -> BatchJob:
+        n = len(self.job.urls)
+        if n == 0:
+            return self.job
+
+        max_workers = max(1, min(n, self.job.config.max_concurrent))
+        if max_workers == 1:
+            for url in self.job.urls:
+                self.job.results.append(self._run_one(url))
+            return self.job
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(self._run_one, url) for url in self.job.urls]
+            for fut in futures:
+                self.job.results.append(fut.result())
+        return self.job
+
+
 def download_batch(
     job: BatchJob,
     progress_hook: ProgressHook | None = None,
@@ -533,44 +588,4 @@ def download_batch(
     Returns the mutated BatchJob with all results populated.
     Never raises — failed URLs are captured in DownloadResult(status=FAILED).
     """
-    hook_lock = threading.Lock()
-
-    def _safe_progress_hook(d: ProgressData) -> None:
-        if progress_hook is None:
-            return
-        with hook_lock:
-            progress_hook(d)
-
-    def _run_one(url: str) -> DownloadResult:
-        per_config = job.config.model_copy(update={"url": url})
-        try:
-            result = download(per_config, _safe_progress_hook)
-        except EngineError as e:
-            result = DownloadResult(
-                url=url,
-                status=DownloadStatus.FAILED,
-                filepath=None,
-                error=str(e),
-                duration_s=None,
-                finished_at=datetime.now(),
-            )
-        if on_result is not None:
-            with hook_lock:
-                on_result(result)
-        return result
-
-    n = len(job.urls)
-    if n == 0:
-        return job
-
-    max_workers = max(1, min(n, job.config.max_concurrent))
-    if max_workers == 1:
-        for url in job.urls:
-            job.results.append(_run_one(url))
-        return job
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_one, url) for url in job.urls]
-        for fut in futures:
-            job.results.append(fut.result())
-    return job
+    return _BatchWorker(job, progress_hook, on_result).run()

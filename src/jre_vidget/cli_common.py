@@ -7,6 +7,8 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +33,22 @@ from jre_vidget.models import (
 from jre_vidget.publisher import PublishError
 
 console = Console(stderr=True)
+
+
+@contextmanager
+def progress_hook_session(*, json_output: bool) -> Iterator[engine.ProgressHook | None]:
+    """
+    Yield a Rich-backed yt-dlp progress hook, or ``None`` when ``json_output`` disables UI.
+
+    When non-JSON, the Rich ``Progress`` context stays active for the whole ``with`` block.
+    """
+    if json_output:
+        yield None
+        return
+    hook, progress_ctx = ui.make_progress_hook()
+    with progress_ctx:
+        yield hook
+
 
 # Set True after the first ``ensure_cli_logging()`` attempt (mirrors one-shot ``basicConfig`` semantics).
 _vidget_cli_logging_initialized = False
@@ -315,6 +333,7 @@ __all__ = [
     "is_headless",
     "is_remote_publish_target",
     "parse_privacy",
+    "progress_hook_session",
     "publish_after_download",
     "publish_config_for_downloaded_file",
     "publisher",
