@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from jre_vidget import cli as vidget_cli
+from jre_vidget import cli_common as vidget_cli
 
 
 @pytest.fixture(autouse=True)

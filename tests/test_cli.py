@@ -42,6 +42,37 @@ def test_download_help() -> None:
     assert "--subs" in plain
 
 
+def test_cli_reexports_share_dependency_modules_with_cli_common() -> None:
+    """Legacy ``patch("jre_vidget.cli.engine", ...)`` targets the same modules as ``cli_common``."""
+    import jre_vidget.cli as cli_mod
+    import jre_vidget.cli_common as common
+
+    assert cli_mod.engine is common.engine
+    assert cli_mod.auth is common.auth
+    assert cli_mod.publisher is common.publisher
+    assert cli_mod.checks is common.checks
+    assert cli_mod.ui is common.ui
+
+
+def test_legacy_cli_patch_path_still_mocks_engine() -> None:
+    """Phase prompts and external tests often patch ``jre_vidget.cli.engine``."""
+    from jre_vidget.models import VideoPreview
+
+    fake = VideoPreview(
+        url="https://youtube.com/watch?v=legacy",
+        title="Legacy patch",
+        description="",
+        duration_seconds=1,
+        thumbnail_url="https://example.com/t.jpg",
+        uploader="u",
+    )
+    with patch("jre_vidget.cli.engine.preview", return_value=fake):
+        result = runner.invoke(app, ["preview", "--json", "https://youtube.com/watch?v=legacy"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["title"] == "Legacy patch"
+
+
 def test_resolve_download_config_subs_tri_state(tmp_path: Path) -> None:
     """None → saved default; False/--no-subs must override cfg.subtitles=True."""
     cfg = AppConfig(output_dir=tmp_path, subtitles=True)
@@ -104,8 +135,8 @@ def test_download_publish_missing_filepath_exits_1(tmp_path: Path) -> None:
         webpage_url="https://x.com",
     )
     with (
-        patch("jre_vidget.cli.engine.download", return_value=fake_result),
-        patch("jre_vidget.cli.engine.fetch_info", return_value=info),
+        patch("jre_vidget.cli_common.engine.download", return_value=fake_result),
+        patch("jre_vidget.cli_common.engine.fetch_info", return_value=info),
     ):
         result = runner.invoke(
             app,
@@ -130,7 +161,7 @@ def test_download_success(tmp_path: Path) -> None:
         status=DownloadStatus.SUCCESS,
         filepath=tmp_path / "video.mp4",
     )
-    with patch("jre_vidget.cli.engine.download", return_value=fake_result):
+    with patch("jre_vidget.cli_common.engine.download", return_value=fake_result):
         result = runner.invoke(
             app,
             ["download", "https://x.com", "--output", str(tmp_path)],
@@ -144,7 +175,7 @@ def test_download_failure_exits_1(tmp_path: Path) -> None:
         status=DownloadStatus.FAILED,
         error="404",
     )
-    with patch("jre_vidget.cli.engine.download", return_value=fake_result):
+    with patch("jre_vidget.cli_common.engine.download", return_value=fake_result):
         result = runner.invoke(app, ["download", "https://x.com"])
     assert result.exit_code == 1
 
@@ -155,7 +186,7 @@ def test_download_json_stdout(tmp_path: Path) -> None:
         status=DownloadStatus.SUCCESS,
         filepath=tmp_path / "video.mp4",
     )
-    with patch("jre_vidget.cli.engine.download", return_value=fake_result):
+    with patch("jre_vidget.cli_common.engine.download", return_value=fake_result):
         result = runner.invoke(
             app,
             ["download", "https://x.com", "--output", str(tmp_path), "--json"],
@@ -173,7 +204,7 @@ def test_formats_json_stdout() -> None:
         url="https://x.com",
         webpage_url="https://x.com",
     )
-    with patch("jre_vidget.cli.engine.fetch_info", return_value=info):
+    with patch("jre_vidget.cli_common.engine.fetch_info", return_value=info):
         result = runner.invoke(app, ["formats", "https://x.com", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
@@ -191,7 +222,7 @@ def test_batch_json_stdout(tmp_path: Path) -> None:
         )
         return job
 
-    with patch("jre_vidget.cli.engine.download_batch", side_effect=fake_batch):
+    with patch("jre_vidget.cli_common.engine.download_batch", side_effect=fake_batch):
         result = runner.invoke(
             app,
             ["batch", str(urls_file), "--output", str(tmp_path), "--json"],
@@ -248,7 +279,7 @@ def test_auth_logout_invokes_logout(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     AppConfig(
         auth=AuthConfig(refresh_token=SecretStr("rt")),
     ).save()
-    with patch("jre_vidget.cli.auth.logout", wraps=auth.logout) as wrapped:
+    with patch("jre_vidget.cli_common.auth.logout", wraps=auth.logout) as wrapped:
         result = runner.invoke(app, ["auth", "logout"])
     assert result.exit_code == 0
     wrapped.assert_called_once()
@@ -308,7 +339,7 @@ def test_history_append_invalid_privacy_exit_2(tmp_path: Path) -> None:
 
 
 def test_download_invalid_privacy_exit_2(tmp_path: Path) -> None:
-    with patch("jre_vidget.cli.checks.check_dependencies"):
+    with patch("jre_vidget.cli_common.checks.check_dependencies"):
         result = runner.invoke(
             app,
             [
@@ -328,7 +359,7 @@ def test_download_invalid_privacy_exit_2(tmp_path: Path) -> None:
 def test_publish_invalid_privacy_exit_2(tmp_path: Path) -> None:
     video = tmp_path / "clip.mp4"
     video.write_bytes(b"x")
-    with patch("jre_vidget.cli.checks.check_dependencies"):
+    with patch("jre_vidget.cli_common.checks.check_dependencies"):
         result = runner.invoke(
             app,
             ["publish", str(video), "--privacy", "not-a-privacy"],

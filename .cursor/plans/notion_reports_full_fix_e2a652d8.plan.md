@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: approval-cli-split
     content: "If approved only: P2-MAINT-08 split cli.py into commands/ subpackage"
-    status: pending
+    status: completed
   - id: gitnexus-validate
     content: Run gitnexus impact per symbol batch; detect_changes before commit; full pytest/ruff/ty
     status: pending

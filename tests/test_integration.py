@@ -21,7 +21,7 @@ def test_version_flag() -> None:
 
 
 def test_keyboard_interrupt_handled(tmp_path: Path) -> None:
-    with patch("jre_vidget.cli.engine.download", side_effect=KeyboardInterrupt):
+    with patch("jre_vidget.cli_common.engine.download", side_effect=KeyboardInterrupt):
         result = runner.invoke(
             app,
             ["download", "https://x.com", "--output", str(tmp_path)],
@@ -59,7 +59,7 @@ def test_output_dir_created(tmp_path: Path) -> None:
         status=DownloadStatus.SUCCESS,
         filepath=new_dir / "video.mp4",
     )
-    with patch("jre_vidget.cli.engine.download", return_value=fake_result):
+    with patch("jre_vidget.cli_common.engine.download", return_value=fake_result):
         result = runner.invoke(
             app,
             ["download", "https://x.com", "--output", str(new_dir)],
@@ -79,7 +79,7 @@ def test_batch_with_comments(tmp_path: Path) -> None:
             job.results.append(DownloadResult(url=url, status=DownloadStatus.SUCCESS))
         return job
 
-    with patch("jre_vidget.cli.engine.download_batch", side_effect=fake_batch):
+    with patch("jre_vidget.cli_common.engine.download_batch", side_effect=fake_batch):
         result = runner.invoke(
             app,
             ["batch", str(urls_file), "--output", str(tmp_path)],
