@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -188,6 +188,14 @@ class AuthConfig(BaseModel):
     refresh_token: SecretStr | None = None
 
 
+class PrivacyStatus(StrEnum):
+    """YouTube video privacy — matches Data API ``status.privacyStatus`` values."""
+
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+    PRIVATE = "private"
+
+
 class PublishConfig(BaseModel):
     """Options for a single YouTube upload job."""
 
@@ -196,7 +204,7 @@ class PublishConfig(BaseModel):
     filepath: Path
     title: str  # required — no default
     description: str = ""
-    privacy: Literal["public", "unlisted", "private"] = "public"
+    privacy: PrivacyStatus = PrivacyStatus.PUBLIC
     remove_after_upload: bool = False
 
 
@@ -208,7 +216,7 @@ class PublishResult(BaseModel):
     video_id: str
     url: str  # https://youtube.com/watch?v=...
     title: str
-    privacy: str
+    privacy: PrivacyStatus
     removed_local_file: bool = False
 
 

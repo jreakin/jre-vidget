@@ -7,7 +7,7 @@ import subprocess
 import sys
 from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import Literal, TypeVar, cast
+from typing import TypeVar
 
 import typer
 from rich.console import Console
@@ -23,15 +23,13 @@ from jre_vidget.models import (
     DownloadResult,
     DownloadStatus,
     OutputFormat,
+    PrivacyStatus,
     PublishConfig,
     PublishResult,
     Quality,
     VideoInfo,
 )
 from jre_vidget.publisher import PublishError
-
-PrivacyStatus = Literal["public", "unlisted", "private"]
-_VALID_PRIVACY = frozenset({"public", "unlisted", "private"})
 
 console = Console()
 
@@ -42,9 +40,10 @@ def _is_headless() -> bool:
 
 
 def _parse_privacy(value: str) -> PrivacyStatus:
-    if value not in _VALID_PRIVACY:
-        raise typer.BadParameter("privacy must be public, unlisted, or private")
-    return cast(PrivacyStatus, value)
+    try:
+        return PrivacyStatus(value)
+    except ValueError:
+        raise typer.BadParameter("privacy must be public, unlisted, or private") from None
 
 
 app = typer.Typer(

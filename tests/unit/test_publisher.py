@@ -9,7 +9,7 @@ import pytest
 from pydantic import SecretStr
 
 from jre_vidget.auth import AuthError
-from jre_vidget.models import AuthConfig, PublishConfig, PublishResult
+from jre_vidget.models import AuthConfig, PrivacyStatus, PublishConfig, PublishResult
 from jre_vidget.publisher import PublishError, upload
 
 
@@ -35,7 +35,7 @@ def publish_config(video_file: Path) -> PublishConfig:
         filepath=video_file,
         title="Test Video",
         description="A test description",
-        privacy="public",
+        privacy=PrivacyStatus.PUBLIC,
     )
 
 
@@ -60,7 +60,7 @@ class TestUploadSuccess:
         assert result.video_id == "abc123"
         assert result.url == "https://youtube.com/watch?v=abc123"
         assert result.title == "Test Video"
-        assert result.privacy == "public"
+        assert result.privacy == PrivacyStatus.PUBLIC
         assert result.removed_local_file is False
 
     def test_insert_called_with_correct_metadata(

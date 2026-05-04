@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from jre_vidget.models import AppConfig, AuthConfig, PublishConfig, PublishResult
+from jre_vidget.models import (
+    AppConfig,
+    AuthConfig,
+    PrivacyStatus,
+    PublishConfig,
+    PublishResult,
+)
 
 
 class TestAuthConfig:
@@ -50,7 +56,7 @@ class TestPublishConfig:
     def test_privacy_options(self, tmp_path: Path) -> None:
         filepath = tmp_path / "video.mp4"
         filepath.touch()
-        for privacy in ("public", "unlisted", "private"):
+        for privacy in PrivacyStatus:
             cfg = PublishConfig(filepath=filepath, title="t", privacy=privacy)
             assert cfg.privacy == privacy
 
@@ -63,6 +69,15 @@ class TestPublishConfig:
                     "privacy": "secret",
                 }
             )
+
+    def test_privacy_json_roundtrip(self, tmp_path: Path) -> None:
+        filepath = tmp_path / "video.mp4"
+        filepath.touch()
+        cfg = PublishConfig(filepath=filepath, title="t", privacy=PrivacyStatus.UNLISTED)
+        dumped = cfg.model_dump(mode="json")
+        assert dumped["privacy"] == "unlisted"
+        restored = PublishConfig.model_validate(dumped)
+        assert restored.privacy == PrivacyStatus.UNLISTED
 
     def test_remove_after_upload_flag(self, tmp_path: Path) -> None:
         cfg = PublishConfig(
@@ -79,7 +94,7 @@ class TestPublishResult:
             video_id="abc123",
             url="https://youtube.com/watch?v=abc123",
             title="My Video",
-            privacy="public",
+            privacy=PrivacyStatus.PUBLIC,
         )
         assert "abc123" in result.url
         assert result.removed_local_file is False
@@ -89,7 +104,7 @@ class TestPublishResult:
             video_id="x",
             url="https://youtube.com/watch?v=x",
             title="t",
-            privacy="public",
+            privacy=PrivacyStatus.PUBLIC,
             removed_local_file=True,
         )
         assert result.removed_local_file is True

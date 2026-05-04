@@ -13,13 +13,13 @@ todos:
     status: completed
   - id: privacy-enum
     content: "RF-DRY-03: PrivacyStatus StrEnum in models; cli + tests + serialization alignment"
-    status: pending
+    status: completed
   - id: test-fixture
     content: "RF-SMELL-02: autouse CONFIG_PATH fixture in test_youtube_cli.py; remove duplicates"
-    status: pending
+    status: completed
   - id: validate-gitnexus
     content: Run gitnexus impact per touched symbols; pytest/ruff/ty; detect_changes before commit
-    status: pending
+    status: completed
 isProject: false
 ---
 
