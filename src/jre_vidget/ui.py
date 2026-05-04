@@ -28,6 +28,7 @@ from rich.table import Table
 
 from jre_vidget.engine import ProgressData, ProgressHook
 from jre_vidget.models import (
+    BYTES_PER_MB,
     AppConfig,
     BatchJob,
     DownloadResult,
@@ -83,7 +84,7 @@ def _format_bitrate_cell(f: VideoFormat) -> str:
 def _format_size_cell(f: VideoFormat) -> str:
     if f.filesize is None:
         return "—"
-    mb = f.filesize / 1_048_576
+    mb = f.filesize / BYTES_PER_MB
     return f"~{mb:.0f} MB"
 
 

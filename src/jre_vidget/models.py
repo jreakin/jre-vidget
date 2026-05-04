@@ -13,6 +13,17 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
+BYTES_PER_MB = 1_048_576
+
+
+def _format_duration(seconds: int) -> str:
+    """Format whole seconds as ``H:MM:SS`` when hours > 0, else ``M:SS``."""
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
 
 class Quality(StrEnum):
     """Supported download quality presets."""
@@ -79,7 +90,7 @@ class VideoFormat(BaseModel):
     def display_size(self) -> str:
         if self.filesize is None:
             return "unknown"
-        mb = self.filesize / 1_048_576
+        mb = self.filesize / BYTES_PER_MB
         return f"{mb:.1f} MB"
 
 
@@ -106,11 +117,7 @@ class VideoPreview(BaseModel):
     @property
     def duration_display(self) -> str:
         """Return HH:MM:SS or MM:SS string."""
-        h, rem = divmod(self.duration_seconds, 3600)
-        m, s = divmod(rem, 60)
-        if h:
-            return f"{h}:{m:02d}:{s:02d}"
-        return f"{m}:{s:02d}"
+        return _format_duration(self.duration_seconds)
 
 
 class VideoInfo(BaseModel):
@@ -133,9 +140,7 @@ class VideoInfo(BaseModel):
     def duration_str(self) -> str:
         if self.duration is None:
             return "unknown"
-        m, s = divmod(self.duration, 60)
-        h, m = divmod(m, 60)
-        return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+        return _format_duration(self.duration)
 
     @property
     def best_formats(self) -> list[VideoFormat]:

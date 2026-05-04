@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: dry-constants
     content: "RF-DRY-04, RF-DRY-02, RF-DRY-01: BYTES_PER_MB, _format_duration, _base_ydl_opts in engine/models/ui"
-    status: pending
+    status: completed
   - id: privacy-enum
     content: "RF-DRY-03: PrivacyStatus StrEnum in models; cli + tests + serialization alignment"
     status: pending

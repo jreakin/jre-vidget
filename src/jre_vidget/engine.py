@@ -36,6 +36,16 @@ from jre_vidget.models import (
 
 log = logging.getLogger(__name__)
 
+
+def _base_ydl_opts() -> dict[str, Any]:
+    """Shared yt-dlp flags for all engine call sites (quiet, single video, no playlist)."""
+    return {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+
+
 # yt-dlp retry back-off between attempts (seconds).
 RETRY_BACKOFF_SECONDS = 2.0
 # Only consider output files modified within this window when the finished hook
@@ -105,11 +115,9 @@ def build_ydl_opts(
     - progress_hook is appended to the 'progress_hooks' list if provided
     """
     opts: dict[str, Any] = {
+        **_base_ydl_opts(),
         "format": _ydl_format_for_config(config),
         "outtmpl": config.output_template,
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
     }
 
     postprocessors: list[dict[str, Any]] = []
@@ -225,10 +233,8 @@ def fetch_info(url: str) -> VideoInfo:
     3. Raise EngineError if yt-dlp raises DownloadError / ExtractorError
     """
     opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
+        **_base_ydl_opts(),
         "extract_flat": False,
-        "noplaylist": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -284,10 +290,8 @@ def preview(url: str) -> VideoPreview:
     Raises DownloadError on network failure, unsupported URL, or empty response.
     """
     opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
+        **_base_ydl_opts(),
         "skip_download": True,
-        "noplaylist": True,
         "extract_flat": False,
     }
     try:
