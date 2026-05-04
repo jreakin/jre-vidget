@@ -1,0 +1,3 @@
+ancestorEntries = ["Makefile"]
+ourEntries = ["Makefile"]
+theirEntries = ["Makefile"]
