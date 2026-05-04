@@ -1,3 +1,3 @@
-ancestorEntries = [".DS_Store", "AGENTS.md", "Makefile", "README.md", "src/jre_vidget/ui.py"]
-ourEntries = [".DS_Store", ".cursor/hooks/state/continual-learning-index.json", "AGENTS.md", "Dockerfile", "Makefile", "README.md", "docs/adr/ADR-005-railway-docker-deployment.md", "src/jre_vidget/ui.py"]
-theirEntries = [".DS_Store", ".cursor/hooks/state/continual-learning-index.json", "AGENTS.md", "Dockerfile", "Makefile", "README.md", "docs/adr/ADR-005-railway-docker-deployment.md", "src/jre_vidget/ui.py"]
+ancestorEntries = [".DS_Store", "AGENTS.md", "Makefile"]
+ourEntries = [".DS_Store", "AGENTS.md", "Makefile", "docs/superpowers/specs/2026-05-03-youtube-publish-design.md"]
+theirEntries = [".DS_Store", "AGENTS.md", "Makefile", "docs/superpowers/specs/2026-05-03-youtube-publish-design.md"]

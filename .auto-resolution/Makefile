@@ -153,7 +153,7 @@ test-integration:
 coverage:
 	uv run pytest --cov=src --cov-report=term-missing
 
-# Lint (ruff check)
+# Lint (ruff + mypy)
 lint:
 	uv run ruff check src/ tests/
 	uv run mypy src/ --strict
@@ -166,7 +166,7 @@ format:
 typecheck:
 	uv run mypy src/ --strict
 
-# Check formatting without modifying files (used in CI)
+# Check formatting without modifying (used in CI)
 format-check:
 	uv run ruff format --check src/ tests/
 
