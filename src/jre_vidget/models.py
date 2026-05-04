@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -135,6 +135,39 @@ class DownloadConfig(BaseModel):
         return str(self.output_dir / "%(title)s [%(id)s].%(ext)s")
 
 
+# ---------------------------------------------------------------------------
+# YouTube publish models
+# ---------------------------------------------------------------------------
+
+
+class AuthConfig(BaseModel):
+    """YouTube OAuth credentials — persisted inside AppConfig."""
+
+    client_id: str | None = None
+    client_secret: str | None = None
+    refresh_token: str | None = None
+
+
+class PublishConfig(BaseModel):
+    """Options for a single YouTube upload job."""
+
+    filepath: Path
+    title: str  # required — no default
+    description: str = ""
+    privacy: Literal["public", "unlisted", "private"] = "public"
+    remove_after_upload: bool = False
+
+
+class PublishResult(BaseModel):
+    """Outcome of a completed YouTube upload."""
+
+    video_id: str
+    url: str  # https://youtube.com/watch?v=...
+    title: str
+    privacy: str
+    removed_local_file: bool = False
+
+
 class AppConfig(BaseModel):
     """User preferences persisted under ~/.vidget/config.json."""
 
@@ -143,6 +176,7 @@ class AppConfig(BaseModel):
     format: OutputFormat = OutputFormat.MP4
     subtitles: bool = False
     max_concurrent: int = 3
+    auth: AuthConfig = Field(default_factory=AuthConfig)
 
     model_config = {"arbitrary_types_allowed": True}
 
