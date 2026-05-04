@@ -24,6 +24,8 @@ from jre_vidget.models import AppConfig, AuthConfig
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
+_GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+
 # Port for OAuth redirect callback (InstalledAppFlow.run_local_server).
 OAUTH_LOCAL_SERVER_PORT = 8080
 
@@ -47,7 +49,7 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
             "client_secret": client_secret,
             "redirect_uris": ["http://localhost"],
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
+            "token_uri": _GOOGLE_TOKEN_URI,
         }
     }
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
@@ -87,7 +89,7 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     creds = Credentials(
         token=None,
         refresh_token=refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
+        token_uri=_GOOGLE_TOKEN_URI,
         client_id=client_id,
         client_secret=client_secret,
         scopes=SCOPES,

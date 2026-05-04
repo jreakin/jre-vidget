@@ -256,7 +256,8 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
             if tid is None:
                 task_ref[0] = progress.add_task(desc, total=total_i)
                 tid = task_ref[0]
-            assert tid is not None
+            if tid is None:
+                return
             row = _progress_task_by_id(progress, tid)
             if row is None:
                 return
