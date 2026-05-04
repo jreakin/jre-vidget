@@ -44,31 +44,6 @@ def _parse_privacy(value: str) -> PrivacyStatus:
     return cast(PrivacyStatus, value)
 
 
-from jre_vidget import auth, checks, engine, models, publisher, ui
-from jre_vidget.auth import AuthError
-from jre_vidget.models import (
-    AppConfig,
-    BatchJob,
-    DownloadConfig,
-    DownloadStatus,
-    OutputFormat,
-    PublishConfig,
-    Quality,
-)
-from jre_vidget.publisher import PublishError
-
-PrivacyStatus = Literal["public", "unlisted", "private"]
-_VALID_PRIVACY = frozenset({"public", "unlisted", "private"})
-
-console = Console()
-
-
-def _parse_privacy(value: str) -> PrivacyStatus:
-    if value not in _VALID_PRIVACY:
-        raise typer.BadParameter("privacy must be public, unlisted, or private")
-    return cast(PrivacyStatus, value)
-
-
 app = typer.Typer(
     name="vidget",
     help="🎬  Download & convert videos from 1000+ sites.",
@@ -154,6 +129,62 @@ def _validate_output(path: Path) -> Path:
         ui.print_error(f"Cannot write to {path}", "Check directory permissions.")
         raise typer.Exit(code=1) from None
     return path
+<<<<<<< ours
+||||||| ancestor
+config_app = typer.Typer(help="View or edit default settings.")
+app.add_typer(config_app, name="config")
+
+
+def version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"vidget {pkg_version('jre-vidget')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Global options; runs before every subcommand."""
+    if ctx.invoked_subcommand != "config":
+        checks.check_dependencies()
+
+
+T = TypeVar("T")
+
+
+def _resolve(value: T | None, default: T) -> T:
+    """Return value if set, otherwise fall back to default."""
+    return value if value is not None else default
+
+
+def _read_batch_urls(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    urls: list[str] = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        urls.append(s)
+    return urls
+
+
+def _validate_output(path: Path) -> Path:
+    """Ensure the path exists or can be created, and is writable."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        ui.print_error(f"Cannot write to {path}", "Check directory permissions.")
+        raise typer.Exit(code=1) from None
+    return path
+=======
 ||||||| Common ancestor
 console = Console()
 =======
@@ -216,6 +247,7 @@ def _formats_table(title: str, rows: list[VideoFormat]) -> Table:
         )
     return table
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
+>>>>>>> theirs
 
 
 @app.command()
