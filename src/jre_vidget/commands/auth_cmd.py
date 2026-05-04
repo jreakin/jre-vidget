@@ -36,7 +36,10 @@ def auth_status(
     strict: bool = typer.Option(
         False,
         "--strict",
-        help="Exit with code 3 if OAuth client id, secret, and refresh token are not all available.",
+        help=(
+            "Exit with code 3 if client id, secret, and refresh token are missing or blank "
+            "(env + config). Does not contact Google; upload still validates the token."
+        ),
     ),
 ) -> None:
     """Show YouTube connection status (env vars ``VIDGET_*`` count the same as saved config)."""

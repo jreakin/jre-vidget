@@ -54,12 +54,15 @@ jobs:
       - name: Install project
         run: uv sync
 
+      # --strict only checks secrets are non-blank (env + empty config). Revoked or
+      # invalid refresh tokens still fail on the actual upload step when vidget refreshes.
       - name: Verify YouTube credentials (non-interactive)
         env:
           VIDGET_CLIENT_ID: ${{ secrets.VIDGET_CLIENT_ID }}
           VIDGET_CLIENT_SECRET: ${{ secrets.VIDGET_CLIENT_SECRET }}
           VIDGET_REFRESH_TOKEN: ${{ secrets.VIDGET_REFRESH_TOKEN }}
-        run: uv run vidget auth status --strict
+        run: |
+          uv run vidget auth status --strict
 
       - name: Download & publish
         id: publish

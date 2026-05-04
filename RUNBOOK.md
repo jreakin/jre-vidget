@@ -163,6 +163,11 @@ The workflow runs `vidget auth status --strict` before download so missing or bl
 `VIDGET_CLIENT_ID`, `VIDGET_CLIENT_SECRET`, or `VIDGET_REFRESH_TOKEN` fails fast (exit code 3)
 instead of halfway through an upload.
 
+**What `--strict` does not do:** it does **not** call Google’s token endpoint. It only
+confirms the three values are present after merging env vars and `~/.vidget/config.json`.
+A revoked refresh token or disabled API can still make the next step fail with an auth
+or quota error—see below.
+
 ### YouTube Data API quota and failures
 
 Uploads use the [YouTube Data API v3](https://developers.google.com/youtube/v3/getting-started#quota).

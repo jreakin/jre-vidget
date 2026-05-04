@@ -416,6 +416,23 @@ def _expected_extension(config: DownloadConfig) -> str:
     return config.format.value
 
 
+def _resolve_output_base(output_dir: Path) -> Path:
+    """
+    Best-effort canonical directory for containment checks and mtime fallback.
+
+    Prefer :meth:`Path.resolve`; on ``OSError`` fall back to :meth:`Path.absolute` so
+    :func:`download` and :func:`_find_newest_output_file` share the same anchor when
+    ``resolve`` is unavailable (permissions, transient FS errors).
+    """
+    try:
+        return output_dir.resolve()
+    except OSError:
+        try:
+            return output_dir.absolute()
+        except OSError:
+            return output_dir
+
+
 def _is_under_output_dir(candidate: Path, output_dir_resolved: Path) -> bool:
     """True when ``candidate`` resolves to a file inside ``output_dir_resolved`` (no path escape)."""
     try:
@@ -437,11 +454,7 @@ def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
     :data:`FILE_DISCOVERY_WINDOW_SECONDS`, ignoring files outside the output tree.
     """
     ext = ext.lower().lstrip(".")
-    try:
-        base = output_dir.resolve()
-    except OSError as e:
-        log.warning("Could not resolve output_dir %s: %s", output_dir, e)
-        return None
+    base = _resolve_output_base(output_dir)
     cutoff = time.time() - FILE_DISCOVERY_WINDOW_SECONDS
     best: tuple[float, Path] | None = None
     try:
@@ -492,11 +505,19 @@ def download(
     Steps:
     1. Record start time
     2. Ensure config.output_dir exists (mkdir parents, exist_ok)
-    3. Build opts via build_ydl_opts(config, progress_hook)
-    4. Call ydl.download([config.url]), retrying on DownloadError up to ``retries``
+    3. Build opts via ``build_ydl_opts(config, progress_hook)``, then append a
+       ``postprocessor_hooks`` entry so yt-dlp reports the final filepath after merge /
+       ffmpeg (when postprocessors run).
+    4. Call ``ydl.download([config.url])``, retrying on DownloadError up to ``retries``
        times (from ``config.retries`` when ``retries`` is None) with
        ``RETRY_BACKOFF_SECONDS`` between attempts
-    5. On success → find the output file and return DownloadResult(status=SUCCESS)
+    5. On success → resolve the output path in order: last valid **postprocessor**
+       ``finished`` filepath, then last valid **progress** ``finished`` filename, then
+       :func:`_find_newest_output_file` under ``output_dir``. Paths must lie under the
+       output directory and match the expected format extension (intermediate or wrong
+       suffix paths from yt-dlp are ignored so the final file can still be found via
+       mtime fallback). If nothing matches, status is still ``SUCCESS`` but
+       ``filepath`` is ``None`` and a warning is logged.
     6. On exhausted DownloadError → return DownloadResult(status=FAILED, error=...)
     7. On any other exception → re-raise as EngineError
     """
@@ -505,16 +526,16 @@ def download(
     progress_finished_paths: list[Path] = []
     postprocessor_finished_paths: list[Path] = []
 
-    try:
-        output_base = config.output_dir.resolve()
-    except OSError:
-        output_base = config.output_dir
+    output_base = _resolve_output_base(config.output_dir)
 
     ext_suffix = f".{_expected_extension(config).lower().lstrip('.')}"
 
     def _record_if_valid_output(path: Path, bucket: list[Path]) -> None:
         if not _is_under_output_dir(path, output_base):
             return
+        # Match configured container extension only: ignore yt-dlp intermediates
+        # (.part, pre-merge names) so they do not occupy hook slots; mtime fallback
+        # still discovers the final file when hooks omit the true output.
         if path.suffix.lower() != ext_suffix:
             return
         bucket.append(path.resolve())
@@ -577,6 +598,15 @@ def download(
                     break
         if filepath is None:
             filepath = _find_newest_output_file(
+                config.output_dir,
+                _expected_extension(config),
+            )
+        if filepath is None:
+            log.warning(
+                "Download finished for %s but no output filepath was resolved "
+                "(output_dir=%s, ext=%s). Hooks may not have reported a final file, or "
+                "nothing matched inside the discovery window.",
+                config.url,
                 config.output_dir,
                 _expected_extension(config),
             )

@@ -70,19 +70,38 @@ class AuthError(Exception):
     """Raised when credentials are missing, invalid, or cannot be refreshed."""
 
 
+def _strip_nonempty(s: str | None) -> str | None:
+    if s is None:
+        return None
+    t = s.strip()
+    return t or None
+
+
+def _env_then_cfg(env_raw: str | None, cfg: str | None) -> str | None:
+    """
+    Prefer a **non-blank** environment value when the variable is set (even if empty).
+
+    If ``env_raw`` is ``None`` (unset), use ``cfg``. If ``env_raw`` is ``""`` or only
+    whitespace, fall back to ``cfg`` so blank CI secrets do not mask on-disk tokens.
+    """
+    if env_raw is not None:
+        t = env_raw.strip()
+        if t:
+            return t
+    return _strip_nonempty(cfg)
+
+
 def _resolved_oauth_triplet(auth: AuthConfig) -> tuple[str, str, str] | None:
     """
     Merge env vars and ``auth`` the same way as :func:`get_credentials`, without refreshing.
 
     Returns ``None`` if any of client id, client secret, or refresh token is missing/blank.
     """
-    client_id = (os.getenv("VIDGET_CLIENT_ID") or auth.client_id or "").strip() or None
-    env_secret = os.getenv("VIDGET_CLIENT_SECRET")
+    client_id = _env_then_cfg(os.getenv("VIDGET_CLIENT_ID"), auth.client_id)
     cfg_secret = auth.client_secret.get_secret_value() if auth.client_secret else None
-    client_secret = (env_secret or cfg_secret or "").strip() or None
-    env_rt = os.getenv("VIDGET_REFRESH_TOKEN")
+    client_secret = _env_then_cfg(os.getenv("VIDGET_CLIENT_SECRET"), cfg_secret)
     cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
-    refresh_token = (env_rt or cfg_rt or "").strip() or None
+    refresh_token = _env_then_cfg(os.getenv("VIDGET_REFRESH_TOKEN"), cfg_rt)
     if not client_id or not client_secret or not refresh_token:
         return None
     return client_id, client_secret, refresh_token
@@ -127,9 +146,10 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     """
     Return valid, refreshed Google credentials.
 
-    Reads client_id, client_secret, and refresh_token from auth, falling back to
-    VIDGET_CLIENT_ID, VIDGET_CLIENT_SECRET, and VIDGET_REFRESH_TOKEN environment
-    variables (env vars take precedence).
+    Reads client_id, client_secret, and refresh_token from auth, merged with
+    ``VIDGET_CLIENT_ID``, ``VIDGET_CLIENT_SECRET``, and ``VIDGET_REFRESH_TOKEN``.
+    For each field, a **non-blank** env value wins; if the env var is set but empty
+    or whitespace-only, the saved config value is used instead.
 
     Raises AuthError if credentials are missing or refresh fails.
     """
