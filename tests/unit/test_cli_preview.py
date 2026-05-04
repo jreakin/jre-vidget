@@ -53,7 +53,7 @@ def test_publish_shows_preview_before_dispatching() -> None:
 
     with (
         patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW),
-        patch("jre_vidget.cli_common._dispatch_publish_workflow", side_effect=fake_dispatch),
+        patch("jre_vidget.cli_common.dispatch_publish_workflow", side_effect=fake_dispatch),
     ):
         result = runner.invoke(
             app,
@@ -70,7 +70,7 @@ def test_publish_cancelled_when_not_confirmed() -> None:
     """TTY-style confirm path (CliRunner is non-TTY; simulate interactive)."""
     with (
         patch("jre_vidget.cli_common.engine.preview", return_value=FAKE_PREVIEW),
-        patch("jre_vidget.cli_common._is_headless", return_value=False),
+        patch("jre_vidget.cli_common.is_headless", return_value=False),
     ):
         result = runner.invoke(
             app,

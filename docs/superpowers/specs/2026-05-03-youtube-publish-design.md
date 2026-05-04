@@ -100,7 +100,7 @@ Exceptions are caught in `cli.py` as `auth.AuthError`.
   refreshed credentials. Handles token refresh transparently using the stored
   `refresh_token`. Raises `AuthError` if credentials are missing or refresh fails.
 - **`logout(cfg)`** — clears `client_id`, `client_secret`, and `refresh_token` from the
-  passed `AppConfig`, calls `cfg.save()`, and returns the updated config.
+  passed `AppConfig`, calls `save_app_config(cfg)` from `jre_vidget.config`, and returns the updated config.
 
 ### OAuth Scope
 

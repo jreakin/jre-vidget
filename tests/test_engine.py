@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +14,7 @@ from jre_vidget.engine import (
     YDL_SOCKET_TIMEOUT_SECONDS,
     EngineError,
     _attempt_download_once,
+    _find_newest_output_file,
     build_ydl_opts,
     download,
     download_batch,
@@ -104,6 +107,137 @@ def test_download_sets_filepath_from_finished_hook(tmp_path: Path) -> None:
 
     assert result.status == DownloadStatus.SUCCESS
     assert result.filepath == out_file
+
+
+def test_download_sets_filepath_from_postprocessor_hook(tmp_path: Path) -> None:
+    """Final path from postprocessor hook wins (deterministic after ffmpeg merge)."""
+    out_file = tmp_path / "final.mp4"
+    out_file.write_bytes(b"x")
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            for h in call_opts.get("postprocessor_hooks") or []:
+                h({"status": "finished", "filepath": str(out_file)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == out_file.resolve()
+
+
+def test_download_prefers_postprocessor_over_newer_decoy(tmp_path: Path) -> None:
+    """
+    Postprocessor-reported path is preferred over mtime scan when a decoy file is newer
+    (concurrent-adjacent / slow-disk edge case).
+    """
+    real = tmp_path / "real.mp4"
+    real.write_bytes(b"a")
+    decoy = tmp_path / "decoy.mp4"
+    decoy.write_bytes(b"b")
+    # Make decoy strictly newer so naive mtime pick would be wrong.
+    decoy_stat = decoy.stat()
+    os.utime(real, (decoy_stat.st_mtime - 100, decoy_stat.st_mtime - 100))
+
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            for h in call_opts.get("progress_hooks") or []:
+                h({"status": "finished", "filename": str(decoy)})
+            for h in call_opts.get("postprocessor_hooks") or []:
+                h({"status": "finished", "filepath": str(real)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == real.resolve()
+
+
+def test_download_last_postprocessor_filepath_wins(tmp_path: Path) -> None:
+    """When yt-dlp emits multiple ``finished`` postprocessor paths, the last one wins."""
+    first = tmp_path / "step.mp4"
+    first.write_bytes(b"1")
+    last = tmp_path / "final.mp4"
+    last.write_bytes(b"2")
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+
+        def download_side_effect(_urls: list[str]) -> None:
+            call_opts = MockYDL.call_args[0][0]
+            for h in call_opts.get("postprocessor_hooks") or []:
+                h({"status": "finished", "filepath": str(first)})
+                h({"status": "finished", "filepath": str(last)})
+
+        instance.download.side_effect = download_side_effect
+        MockYDL.return_value.__enter__.return_value = instance
+        result = download(cfg)
+
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath == last.resolve()
+
+
+def test_find_newest_skips_symlink_resolving_outside_output_dir(tmp_path: Path) -> None:
+    """A same-extension symlink whose target lies outside ``output_dir`` must not win."""
+    out = tmp_path / "out"
+    out.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "nasty.mp4"
+    target.write_bytes(b"x")
+    link = out / "via.mp4"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlink creation not available")
+    real = out / "real.mp4"
+    real.write_bytes(b"y")
+    found = _find_newest_output_file(out, "mp4")
+    assert found == real.resolve()
+
+
+def test_find_newest_returns_none_when_only_escape_symlink(tmp_path: Path) -> None:
+    out = tmp_path / "solo"
+    out.mkdir()
+    outside = tmp_path / "ext"
+    outside.mkdir()
+    target = outside / "t.mp4"
+    target.write_bytes(b"x")
+    link = out / "only.mp4"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlink creation not available")
+    assert _find_newest_output_file(out, "mp4") is None
+
+
+def test_download_success_warns_when_no_filepath_resolved(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """If hooks and mtime fallback yield nothing, SUCCESS still logs a warning."""
+    cfg = DownloadConfig(url="https://x.com", output_dir=tmp_path)
+    with patch("yt_dlp.YoutubeDL") as MockYDL:
+        instance = MagicMock()
+        instance.download.return_value = None
+        MockYDL.return_value.__enter__.return_value = instance
+        with caplog.at_level(logging.WARNING):
+            result = download(cfg)
+    assert result.status == DownloadStatus.SUCCESS
+    assert result.filepath is None
+    assert "no output filepath" in caplog.text
 
 
 def test_download_batch_preserves_url_order_with_thread_pool() -> None:

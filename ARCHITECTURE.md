@@ -7,11 +7,13 @@ It wraps yt-dlp (video extraction + format listing) and ffmpeg (stream merging /
 and exposes them through a Typer CLI with a Rich terminal UI.
 
 ```
-User → vidget CLI (cli.py)
-         ├── engine.fetch_info()   → VideoInfo (formats, metadata)
-         ├── engine.download()     → DownloadResult (filepath, status)
+User → vidget CLI (cli.py mounts commands)
+         ├── commands/*.py        → per-command Typer handlers
+         ├── cli_common.py        → shared download/publish helpers, Rich Console(stderr=True)
+         ├── engine.fetch_info()  → VideoInfo (formats, metadata)
+         ├── engine.download()    → DownloadResult (filepath, status)
          ├── engine.download_batch() → BatchJob (per-URL results)
-         └── config.AppConfig      → ~/.vidget/config.json
+         └── config.AppConfig     → ~/.vidget/config.json
                  ↓
            yt-dlp (subprocess / Python API)
                  ↓
@@ -24,10 +26,12 @@ User → vidget CLI (cli.py)
 
 | Module | Purpose |
 |--------|---------|
-| `cli.py` | Typer app, all command handlers, Rich UI calls |
+| `cli.py` | Typer app entry — mounts command groups (`config`, `auth`, `history`, …) and links to `commands/*` |
+| `commands/*.py` | Individual commands (`download`, `batch`, `publish_cmd`, …) |
+| `cli_common.py` | Shared CLI orchestration: `resolve_download_config`, progress session, publish-after-download, `gh workflow run` dispatch |
 | `engine.py` | yt-dlp wrapper — pure business logic, no UI imports |
 | `models.py` | Pydantic v2 data models for config, video info, results |
-| `config.py` | AppConfig — JSON persistence to `~/.vidget/config.json` |
+| `config.py` | `load_app_config` / `save_app_config` — JSON persistence to `~/.vidget/config.json` |
 | `ui.py` | Rich UI functions — spinner, progress bar, tables |
 | `checks.py` | Pre-flight: verify yt-dlp importable + ffmpeg on PATH |
 
@@ -67,9 +71,9 @@ After exhausting retries, returns `DownloadResult(status=FAILED, error=...)` —
 ## Config Management
 
 - Config stored at `~/.vidget/config.json`
-- Loaded lazily by `AppConfig.load()` classmethod
-- Saved via `AppConfig.save()` using `model_dump_json()`
-- CLI flags override persisted defaults when set; omitted options fall back to `AppConfig` (see `_resolve_download_config` in `cli.py`)
+- Loaded with `jre_vidget.config.load_app_config()` (returns `AppConfig` defaults if the file is missing)
+- Saved with `jre_vidget.config.save_app_config(cfg)` (writes JSON with plaintext OAuth fields where set; not a raw `model_dump_json()` so secrets persist readably)
+- CLI flags override persisted defaults when set; omitted options fall back to `AppConfig` (see `resolve_download_config` in `cli_common.py`)
 - `vidget config reset --yes` deletes the file
 
 ## Error Handling
@@ -92,28 +96,53 @@ After exhausting retries, returns `DownloadResult(status=FAILED, error=...)` —
 
 | Mode | stdout | stderr |
 |------|--------|--------|
-| Human (default) | Rich-formatted text | structlog / warnings |
-| Machine (`--json`) | Pure JSON (one object) | Rich progress + structlog |
+| Human (default) | Rich-formatted text | stdlib logging (see `VIDGET_LOG_LEVEL` / `VIDGET_LOG_FORMAT`) and Rich progress |
+| Machine (`--json`) | Pure JSON (one object) | Rich progress (when applicable), log lines, and plain-text error hints |
 
-The `Console(stderr=True)` instance in `ui.py` handles all progress/spinner output so
-that piping `vidget ... --json` always produces parse-clean stdout.
+`cli_common.console` and Rich helpers use `Console(stderr=True)` so piping
+`vidget ... --json` keeps **stdout** as a single JSON object for successful data commands.
 
-JSON response shape:
+**`vidget download … --json`** emits one JSON object shaped like the Pydantic payloads from
+`emit_download_json_stdout` in `commands/download.py`: a **flat** top-level object with
+`download` (always) and `publish` (only when `--publish` completed). There is no
+`{ok, schemaVersion, data}` envelope.
+
+Example (download + publish success):
+
 ```json
-// success
-{"ok": true, "schemaVersion": 1, "data": {...}}
-
-// failure  
-{"ok": false, "schemaVersion": 1, "error": {"code": "download_failed", "message": "...", "retryable": false}}
+{
+  "download": {
+    "url": "https://example.com/watch",
+    "status": "success",
+    "filepath": "/Users/you/Downloads/video.mp4",
+    "error": null,
+    "duration_s": null,
+    "finished_at": "2026-05-04T12:00:00"
+  },
+  "publish": {
+    "video_id": "dQw4w9WgXcQ",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "title": "My title",
+    "privacy": "public",
+    "removed_local_file": false
+  }
+}
 ```
+
+`finished_at` and other datetimes are whatever Pydantic emits in JSON mode (typically
+ISO-8601 strings with a timezone or offset); exact formatting can vary by field defaults.
+
+On failure before JSON emission, the process exits non-zero; stderr carries the error
+message (and optional JSON log lines if `VIDGET_LOG_FORMAT=json`).
 
 ## AI Decision Records
 
-ADRs are stored in `docs/adr/`. Current records:
+ADRs are stored in `docs/adr/` (index: `docs/adr/README.md`). Current records:
 
 | ADR | Decision |
 |-----|---------|
-| ADR-001 | yt-dlp over youtube-dl — actively maintained, Brightcove/HLS support |
-| ADR-002 | Typer over Click — native Rich integration, cleaner type-annotated API |
-| ADR-003 | Pydantic v2 for models — JSON serialization, validators, strict types |
-| ADR-004 | ffmpeg-python over subprocess — typed wrapper, cleaner pipeline syntax |
+| ADR-001 | yt-dlp for extraction — maintained fork, site coverage |
+| ADR-002 | Typer for CLI — typed commands, Rich-friendly |
+| ADR-003 | Pydantic v2 for models — strict config and JSON |
+| ADR-004 | ffmpeg-python for media helpers — typed wrapper over ffmpeg CLI |
+| ADR-005 | Railway / Docker deployment notes (operational) |

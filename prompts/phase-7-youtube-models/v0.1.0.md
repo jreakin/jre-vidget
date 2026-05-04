@@ -35,8 +35,8 @@ alongside user preferences.
 `models.py` already contains: `Quality`, `OutputFormat`, `VideoFormat`, `VideoInfo`,
 `DownloadConfig`, `AppConfig`, `DownloadStatus`, `DownloadResult`, `BatchJob`.
 
-`AppConfig` persists to `~/.vidget/config.json` via `model_dump_json()` /
-`model_validate_json()`.
+`AppConfig` is stored at `~/.vidget/config.json` via `jre_vidget.config.save_app_config` /
+`load_app_config` (plaintext OAuth fields where set; see `config.py`).
 
 ---
 
@@ -57,6 +57,7 @@ from typing import Literal
 import pytest
 from pydantic import ValidationError
 
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import AppConfig, AuthConfig, PublishConfig, PublishResult
 
 
@@ -151,14 +152,14 @@ class TestAppConfigEmbedding:
         assert cfg.auth.refresh_token is None
 
     def test_app_config_persists_auth(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="mytoken")
-        cfg.save()
+        save_app_config(cfg)
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token == "mytoken"
 ```
 

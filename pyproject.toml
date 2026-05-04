@@ -23,8 +23,10 @@ dev = [
     "hypothesis>=6",
     "pytest>=8",
     "pytest-cov>=4",
+    "radon>=6",
     "ruff>=0.4",
     "ty>=0.0.0a1",
+    "vulture>=2",
 ]
 
 [project.scripts]
@@ -62,6 +64,9 @@ replace-imports-with-any = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "real_dependency_checks: run real check_dependencies (disables autouse mock)",
+]
 
 [build-system]
 requires = ["hatchling"]

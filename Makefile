@@ -1,6 +1,6 @@
 .PHONY: setup update download batch formats install-cli \
         install dev test test-unit test-integration lint format typecheck \
-        format-check coverage check setup-hooks clean all
+        format-check coverage check setup-hooks clean all radon vulture
 
 IMAGE := jre-vidget
 
@@ -122,6 +122,14 @@ format-check:
 # Pre-flight: verify yt-dlp and ffmpeg are available
 check:
 	uv run vidget check
+
+# Optional complexity / dead-code scans (requires: uv sync --extra dev)
+radon:
+	uv run radon cc src/jre_vidget -a -nc
+
+# Tests are excluded by default (fixtures/mocks trigger false positives).
+vulture:
+	uv run vulture src/jre_vidget --min-confidence 100
 
 # Remove build artifacts and caches
 clean:

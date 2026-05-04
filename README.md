@@ -27,7 +27,7 @@ Web UI (GitHub Pages)
   → web UI shows status and history
 ```
 
-You don't install anything. yt-dlp, ffmpeg, and Python all run on GitHub's free CI runners. Your credentials stay in GitHub Secrets — never in the repo.
+You don't install anything. yt-dlp, ffmpeg, and Python all run on GitHub's free CI runners. Your credentials stay in GitHub Secrets — never in the repo. If you use the browser UI with a GitHub PAT, read the **Web UI: GitHub PAT** risk section in [docs/SETUP.md](docs/SETUP.md) (localStorage scope and XSS considerations).
 
 ## Features
 

@@ -44,6 +44,19 @@ uv run vidget auth login
 # → token saved to ~/.vidget/config.json
 ```
 
+### Custom OAuth callback port (`VIDGET_OAUTH_PORT`)
+
+By default the browser OAuth flow listens on **port 8080**. If that port is already in
+use (VPN software, another app, or corporate policy), set `VIDGET_OAUTH_PORT` to a free
+port in **1–65535** before `uv run vidget auth login` (see `.env.example`).
+
+**Google Cloud Console:** Desktop OAuth clients often accept loopback redirects on
+multiple ports, but if consent fails after changing the port, open **APIs & Services →
+Credentials → your OAuth 2.0 Client ID** and ensure **Authorized redirect URIs** include
+`http://localhost:<your-port>/` (or `http://127.0.0.1:<your-port>/`) matching what the
+library uses. Invalid `VIDGET_OAUTH_PORT` values are ignored with a **WARNING** in logs
+and the default port is used.
+
 Then extract the refresh token:
 
 ```bash
@@ -86,6 +99,26 @@ repo so the maintainer can fix them. It has the minimum possible permissions.
 
 If you prefer not to report errors automatically, skip this secret entirely.
 The publish workflow prints a warning but does not fail if the token is absent.
+
+## Web UI: GitHub PAT in the browser (risk note)
+
+The GitHub Pages UI (`web/`) can store a **fine-grained or classic GitHub PAT** in
+`localStorage` under the key `vidget_gh_pat` so the SPA can call GitHub’s REST API
+(workflow dispatch, secrets, etc.) directly from the browser. The token is **never**
+written to the repository; it stays on the user’s machine inside the browser profile.
+
+**Risks to understand:**
+
+- **XSS on the Pages origin** — any script that executes in the context of your GitHub
+  Pages site could read `localStorage`. Keep the Pages site static, avoid untrusted
+  third-party scripts, and use a PAT scoped to the smallest repository + permission set.
+- **Shared or unlocked devices** — anyone with access to the browser profile can use or
+  export the PAT until you revoke it on GitHub or clear site data (use **Clear PAT** in
+  the UI when done).
+- **Phishing** — only enter a PAT on your real `https://<user>.github.io/<repo>/` URL.
+
+Prefer **fine-grained tokens** with repository-only access and the minimum permissions
+the setup wizard lists. Rotate or revoke the token if it may have leaked.
 
 ## GitHub Variables (non-sensitive)
 

@@ -2,21 +2,26 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.auth.exceptions import GoogleAuthError
 from pydantic import SecretStr
 from typer.testing import CliRunner
 
+from jre_vidget import history
 from jre_vidget.cli import app
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import (
     AppConfig,
     AuthConfig,
     DownloadResult,
     DownloadStatus,
     PrivacyStatus,
+    PublishConfig,
     PublishResult,
     VideoInfo,
 )
@@ -65,9 +70,39 @@ class TestAuthLogin:
                 input="cid\ncsecret\n",
             )
 
-        cfg = AppConfig.load()
+        cfg = load_app_config()
         assert cfg.auth.refresh_token is not None
         assert cfg.auth.refresh_token.get_secret_value() == "saved_token"
+
+    def test_login_exits_1_on_google_auth_error(self) -> None:
+        with patch(
+            "jre_vidget.cli_common.auth.login_browser",
+            side_effect=GoogleAuthError("access denied"),
+        ):
+            result = runner.invoke(
+                app,
+                ["auth", "login"],
+                input="cid\ncsecret\n",
+            )
+        assert result.exit_code == 1
+        combined = (result.stdout or "") + (result.stderr or "")
+        assert "login failed" in combined.lower()
+        assert "access denied" in combined.lower()
+
+    def test_login_exits_1_on_unexpected_exception(self) -> None:
+        with patch(
+            "jre_vidget.cli_common.auth.login_browser",
+            side_effect=RuntimeError("broken flow"),
+        ):
+            result = runner.invoke(
+                app,
+                ["auth", "login"],
+                input="cid\ncsecret\n",
+            )
+        assert result.exit_code == 1
+        combined = (result.stdout or "") + (result.stderr or "")
+        assert "login failed" in combined.lower()
+        assert "broken flow" in combined.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +112,7 @@ class TestAuthStatus:
     def test_shows_connected_when_token_present(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "status"])
         assert result.exit_code == 0
@@ -96,12 +131,12 @@ class TestAuthLogout:
     def test_logout_clears_token(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "logout"])
         assert result.exit_code == 0
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is None
 
 
@@ -115,7 +150,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         mock_result = PublishResult(
             video_id="abc123",
@@ -135,7 +170,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -166,7 +201,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         from jre_vidget.publisher import PublishError
 
@@ -181,7 +216,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -203,7 +238,7 @@ class TestDownloadWithPublish:
     def test_download_publish_calls_fetch_info_first(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -247,7 +282,7 @@ class TestDownloadWithPublish:
     def test_download_publish_uses_scraped_title(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -290,7 +325,7 @@ class TestDownloadWithPublish:
     def test_download_publish_title_override(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -353,3 +388,89 @@ class TestDownloadWithPublish:
             )
 
         mock_pub.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# download → publish (--json) → uploads.json (history.append contract)
+# ---------------------------------------------------------------------------
+class TestDownloadPublishHistoryPipeline:
+    def test_json_stdout_shape_then_history_append(self, tmp_path: Path) -> None:
+        """
+        Mocks yt-dlp + publisher; asserts ``--json`` matches ARCHITECTURE flat contract.
+
+        ``vidget download`` does not append ``uploads.json``; CI/workflows call
+        ``history.append_upload_record`` after a successful publish — this test mirrors
+        that two-step contract in one place.
+        """
+        cfg = AppConfig()
+        cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
+        save_app_config(cfg)
+
+        fake_file = tmp_path / "video.mp4"
+        fake_file.write_bytes(b"fake-bytes")
+
+        mock_info = MagicMock(spec=VideoInfo)
+        mock_info.title = "Scraped Headline"
+
+        mock_dl = DownloadResult(
+            url="https://source.example/story",
+            status=DownloadStatus.SUCCESS,
+            filepath=fake_file,
+            finished_at=datetime.now(),
+        )
+        mock_pub = PublishResult(
+            video_id="abcPipeline99",
+            url="https://www.youtube.com/watch?v=abcPipeline99",
+            title="Scraped Headline",
+            privacy=PrivacyStatus.UNLISTED,
+        )
+
+        with (
+            patch("jre_vidget.cli_common.engine.fetch_info", return_value=mock_info) as mock_fi,
+            patch("jre_vidget.cli_common.engine.download", return_value=mock_dl) as mock_engine_dl,
+            patch("jre_vidget.cli_common.publisher.upload", return_value=mock_pub) as mock_upload,
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "download",
+                    "https://source.example/story",
+                    "--publish",
+                    "--output",
+                    str(tmp_path),
+                    "--json",
+                ],
+            )
+
+        assert result.exit_code == 0, (result.stdout, result.stderr)
+        mock_fi.assert_called_once_with("https://source.example/story")
+        mock_engine_dl.assert_called_once()
+        mock_upload.assert_called_once()
+        publish_cfg = mock_upload.call_args[0][0]
+        assert isinstance(publish_cfg, PublishConfig)
+        assert publish_cfg.filepath == fake_file
+        assert publish_cfg.title == "Scraped Headline"
+
+        payload = json.loads((result.stdout or "").strip())
+        assert set(payload.keys()) == {"download", "publish"}
+        assert payload["download"]["status"] == DownloadStatus.SUCCESS.value
+        assert payload["download"]["filepath"] == str(fake_file)
+        assert payload["publish"]["video_id"] == "abcPipeline99"
+        assert payload["publish"]["privacy"] == PrivacyStatus.UNLISTED.value
+
+        uploads_path = tmp_path / "uploads.json"
+        record = history.append_upload_record(
+            uploads_path,
+            video_id=mock_pub.video_id,
+            title=mock_pub.title,
+            source_url="https://source.example/story",
+            privacy=mock_pub.privacy.value,
+            run_id="integration-test-run",
+        )
+        assert record["video_id"] == "abcPipeline99"
+        doc = json.loads(uploads_path.read_text(encoding="utf-8"))
+        assert doc["schemaVersion"] == history.UPLOADS_SCHEMA_VERSION
+        assert len(doc["uploads"]) == 1
+        assert doc["uploads"][0]["video_id"] == "abcPipeline99"
+        assert doc["uploads"][0]["privacy"] == "unlisted"
+        assert "source.example/story" in doc["uploads"][0]["source_url"]

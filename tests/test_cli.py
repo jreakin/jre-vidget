@@ -14,7 +14,8 @@ from typer.testing import CliRunner
 from jre_vidget import auth
 from jre_vidget import config as vidget_config
 from jre_vidget import history as history_mod
-from jre_vidget.cli import _resolve_download_config, app
+from jre_vidget.cli import app, resolve_download_config
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import (
     AppConfig,
     AuthConfig,
@@ -76,13 +77,11 @@ def test_legacy_cli_patch_path_still_mocks_engine() -> None:
 def test_resolve_download_config_subs_tri_state(tmp_path: Path) -> None:
     """None → saved default; False/--no-subs must override cfg.subtitles=True."""
     cfg = AppConfig(output_dir=tmp_path, subtitles=True)
-    assert _resolve_download_config(cfg, None, None, None, None, "https://x.com").subtitles is True
-    assert (
-        _resolve_download_config(cfg, None, None, None, False, "https://x.com").subtitles is False
-    )
+    assert resolve_download_config(cfg, None, None, None, None, "https://x.com").subtitles is True
+    assert resolve_download_config(cfg, None, None, None, False, "https://x.com").subtitles is False
     cfg_off = AppConfig(output_dir=tmp_path, subtitles=False)
     assert (
-        _resolve_download_config(cfg_off, None, None, None, True, "https://x.com").subtitles is True
+        resolve_download_config(cfg_off, None, None, None, True, "https://x.com").subtitles is True
     )
 
 
@@ -93,12 +92,12 @@ def test_resolve_download_config_quality_format_output_merge(tmp_path: Path) -> 
     override_out = tmp_path / "from_cli"
     override_out.mkdir()
     cfg = AppConfig(output_dir=base_out, quality=Quality.BEST, format=OutputFormat.MP4)
-    merged = _resolve_download_config(cfg, None, None, None, None, "https://x.com")
+    merged = resolve_download_config(cfg, None, None, None, None, "https://x.com")
     assert merged.quality is Quality.BEST
     assert merged.format is OutputFormat.MP4
     assert merged.output_dir == base_out
 
-    overridden = _resolve_download_config(
+    overridden = resolve_download_config(
         cfg,
         Quality.P720,
         OutputFormat.MKV,
@@ -113,11 +112,9 @@ def test_resolve_download_config_quality_format_output_merge(tmp_path: Path) -> 
 
 def test_resolve_download_config_max_concurrent_optional(tmp_path: Path) -> None:
     cfg = AppConfig(output_dir=tmp_path)
+    assert resolve_download_config(cfg, None, None, None, None, "https://x.com").max_concurrent == 3
     assert (
-        _resolve_download_config(cfg, None, None, None, None, "https://x.com").max_concurrent == 3
-    )
-    assert (
-        _resolve_download_config(cfg, None, None, None, None, "", max_concurrent=7).max_concurrent
+        resolve_download_config(cfg, None, None, None, None, "", max_concurrent=7).max_concurrent
         == 7
     )
 
@@ -238,7 +235,7 @@ def test_config_set_quality_persists(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
     result = runner.invoke(app, ["config", "set", "--quality", "720p"])
     assert result.exit_code == 0
-    loaded = AppConfig.load()
+    loaded = load_app_config()
     assert loaded.quality == Quality.P720
 
 
@@ -256,29 +253,64 @@ def test_auth_status_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
     cfg = AppConfig(
-        auth=AuthConfig(refresh_token=SecretStr("not-empty")),
+        auth=AuthConfig(
+            client_id="test-client",
+            client_secret=SecretStr("test-secret"),
+            refresh_token=SecretStr("not-empty"),
+        ),
     )
-    cfg.save()
+    save_app_config(cfg)
     result = runner.invoke(app, ["auth", "status"])
     assert result.exit_code == 0
-    assert "connected" in result.stdout.lower()
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "connected" in combined.lower()
 
 
 def test_auth_status_not_connected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
-    AppConfig().save()
+    save_app_config(AppConfig())
     result = runner.invoke(app, ["auth", "status"])
     assert result.exit_code == 0
-    assert "not connected" in result.stdout.lower()
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "not connected" in combined.lower()
+
+
+def test_auth_status_strict_exits_when_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    save_app_config(AppConfig())
+    result = runner.invoke(app, ["auth", "status", "--strict"])
+    assert result.exit_code == 3
+
+
+def test_auth_status_strict_ok_from_env_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """CI-style: secrets only in env, empty config file."""
+    cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
+    save_app_config(AppConfig())
+    monkeypatch.setenv("VIDGET_CLIENT_ID", "env-id")
+    monkeypatch.setenv("VIDGET_CLIENT_SECRET", "env-secret")
+    monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-rt")
+    result = runner.invoke(app, ["auth", "status", "--strict"])
+    assert result.exit_code == 0
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "connected" in combined.lower()
 
 
 def test_auth_logout_invokes_logout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(vidget_config, "CONFIG_PATH", cfg_path)
-    AppConfig(
-        auth=AuthConfig(refresh_token=SecretStr("rt")),
-    ).save()
+    save_app_config(
+        AppConfig(
+            auth=AuthConfig(refresh_token=SecretStr("rt")),
+        ),
+    )
     with patch("jre_vidget.cli_common.auth.logout", wraps=auth.logout) as wrapped:
         result = runner.invoke(app, ["auth", "logout"])
     assert result.exit_code == 0

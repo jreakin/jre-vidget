@@ -234,7 +234,7 @@ class PublishResult(BaseModel):
 
 
 class AppConfig(BaseModel):
-    """User preferences persisted under ~/.vidget/config.json."""
+    """User preference shape for ``~/.vidget/config.json`` (read/write via ``jre_vidget.config``)."""
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
@@ -244,18 +244,6 @@ class AppConfig(BaseModel):
     subtitles: bool = False
     max_concurrent: int = 3
     auth: AuthConfig = Field(default_factory=AuthConfig)
-
-    @classmethod
-    def load(cls) -> AppConfig:
-        from jre_vidget import config as _app_config
-
-        return _app_config.load_app_config()
-
-    def save(self) -> None:
-        """Write config to disk with plaintext OAuth secrets (not ``model_dump_json`` masking)."""
-        from jre_vidget import config as _app_config
-
-        _app_config.save_app_config(self)
 
 
 class DownloadStatus(StrEnum):

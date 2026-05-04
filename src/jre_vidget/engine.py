@@ -8,11 +8,13 @@ See prompts/phase-3-download-engine/current.md for the spec.
 from __future__ import annotations
 
 import logging
+import math
 import sys
 import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -38,6 +40,13 @@ from jre_vidget.models import (
 log = logging.getLogger(__name__)
 
 YDL_SOCKET_TIMEOUT_SECONDS = 30
+
+# yt-dlp JSON / progress-hook sentinels (avoid scattering magic strings)
+_YT_RESOLUTION_AUDIO_ONLY = "audio only"
+_YT_FORMAT_NOTE_PLACEHOLDERS: frozenset[str] = frozenset({"none"})
+_YTDL_PROGRESS_STATUSES_RECORD_OUTPUT: frozenset[str] = frozenset(
+    {YtdlpStatus.FINISHED.value},
+)
 
 
 def _base_ydl_opts() -> dict[str, Any]:
@@ -70,6 +79,37 @@ class ProgressData(TypedDict, total=False):
 ProgressHook = Callable[[ProgressData], None]
 
 
+def _coerce_int(value: Any) -> int | None:
+    """
+    Return a whole number from yt-dlp JSON scalars.
+
+    Rejects ``bool`` (``bool`` subclasses ``int``) and non-finite floats so callers
+    do not treat accidental truthiness or ``NaN`` as valid metadata.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return int(value)
+    return None
+
+
+def _coerce_float(value: Any) -> float | None:
+    """Return a finite float from yt-dlp JSON scalars; rejects ``bool``."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return value
+    if isinstance(value, int):
+        return float(value)
+    return None
+
+
 def _str_field(raw: dict[str, Any], key: str, default: str = "") -> str:
     """Return ``raw[key]`` when it is a ``str``, else ``default``."""
     val = raw.get(key)
@@ -80,6 +120,27 @@ def _optional_str_field(raw: dict[str, Any], key: str) -> str | None:
     """Return ``raw[key]`` when it is a ``str``, else ``None``."""
     val = raw.get(key)
     return val if isinstance(val, str) else None
+
+
+def _coerced_str_field(raw: dict[str, Any], key: str, default: str = "") -> str:
+    """
+    Stringify ``raw[key]`` when it is a ``str``, ``int``, or finite ``float``.
+
+    Rejects ``bool`` (subclasses ``int``). Other types yield ``default``.
+    Use for yt-dlp fields that are usually strings but may appear as numeric scalars.
+    """
+    val = raw.get(key)
+    if isinstance(val, str):
+        return val
+    if isinstance(val, bool):
+        return default
+    if isinstance(val, int):
+        return str(val)
+    if isinstance(val, float):
+        if not math.isfinite(val):
+            return default
+        return str(val)
+    return default
 
 
 class EngineError(Exception):
@@ -188,7 +249,7 @@ def build_ydl_opts(
 
 def _format_resolution(fmt: dict[str, Any]) -> str | None:
     res = fmt.get("resolution")
-    if isinstance(res, str) and res and res != "audio only":
+    if isinstance(res, str) and res and res != _YT_RESOLUTION_AUDIO_ONLY:
         return res
     w, h = fmt.get("width"), fmt.get("height")
     if isinstance(w, int) and isinstance(h, int):
@@ -200,26 +261,21 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
     filesize = fmt.get("filesize")
     if filesize is None:
         filesize = fmt.get("filesize_approx")
-    fs_int: int | None = None
-    if isinstance(filesize, (int, float)):
-        fs_int = int(filesize)
+    fs_int = _coerce_int(filesize)
 
     fps = fmt.get("fps")
-    fps_f: float | None = float(fps) if isinstance(fps, (int, float)) else None
+    fps_f = _coerce_float(fps)
 
     tbr = fmt.get("tbr")
-    tbr_f: float | None = float(tbr) if isinstance(tbr, (int, float)) else None
-
-    fid = fmt.get("format_id")
-    ext = fmt.get("ext")
+    tbr_f = _coerce_float(tbr)
 
     return VideoFormat(
-        format_id=str(fid) if fid is not None else "",
-        ext=str(ext) if ext is not None else "",
+        format_id=_coerced_str_field(fmt, "format_id"),
+        ext=_coerced_str_field(fmt, "ext"),
         resolution=_format_resolution(fmt),
         fps=fps_f,
-        vcodec=fmt.get("vcodec") if isinstance(fmt.get("vcodec"), str) else None,
-        acodec=fmt.get("acodec") if isinstance(fmt.get("acodec"), str) else None,
+        vcodec=_optional_str_field(fmt, "vcodec"),
+        acodec=_optional_str_field(fmt, "acodec"),
         tbr=tbr_f,
         filesize=fs_int,
     )
@@ -228,9 +284,7 @@ def _map_video_format(fmt: dict[str, Any]) -> VideoFormat:
 def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
     _wu = _optional_str_field(raw, "webpage_url")
     webpage_url = fallback_url if _wu is None else _wu
-    vid = raw.get("id")
-    title_raw = raw.get("title")
-    title = str(title_raw) if title_raw is not None else ""
+    title = _coerced_str_field(raw, "title")
     formats_raw = raw.get("formats")
     formats_list: list[VideoFormat] = []
     if isinstance(formats_raw, list):
@@ -246,10 +300,10 @@ def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
                 subtitles[k] = [x for x in v if isinstance(x, dict)]
 
     duration = raw.get("duration")
-    dur_int: int | None = int(duration) if isinstance(duration, (int, float)) else None
+    dur_int = _coerce_int(duration)
 
     return VideoInfo(
-        id=str(vid) if vid is not None else "",
+        id=_coerced_str_field(raw, "id"),
         title=title,
         url=webpage_url,
         webpage_url=webpage_url,
@@ -280,9 +334,12 @@ def fetch_info(url: str) -> VideoInfo:
 
 
 def _thumbnail_url_from_info(info: dict[str, Any]) -> str:
-    thumb = info.get("thumbnail")
-    if isinstance(thumb, str):
+    # Use _optional_str_field for type safety; keep "" short-circuit (do not prefer thumbnails).
+    thumb = _optional_str_field(info, "thumbnail")
+    if thumb:
         return thumb
+    if thumb == "":
+        return ""
     thumbs = info.get("thumbnails")
     if isinstance(thumbs, list):
         for entry in reversed(thumbs):
@@ -305,7 +362,7 @@ def _preview_format_labels(info: dict[str, Any]) -> list[str]:
             continue
         fn = item.get("format_note")
         label: str | None = None
-        if isinstance(fn, str) and fn and fn.lower() != "none":
+        if isinstance(fn, str) and fn and fn.lower() not in _YT_FORMAT_NOTE_PLACEHOLDERS:
             label = fn
         else:
             label = _format_resolution(item)
@@ -329,17 +386,14 @@ def preview(url: str) -> VideoPreview:
     except _ExtractionError as e:
         raise DownloadError(str(e)) from e
 
-    desc_raw = raw_info.get("description")
-    description = str(desc_raw) if desc_raw is not None else ""
+    description = _coerced_str_field(raw_info, "description")
     duration = raw_info.get("duration")
-    duration_seconds = int(duration) if isinstance(duration, (int, float)) else 0
-    title_raw = raw_info.get("title")
-    title = str(title_raw) if title_raw is not None else ""
-    upl_raw = raw_info.get("uploader")
-    uploader = str(upl_raw) if upl_raw is not None else ""
+    duration_seconds = _coerce_int(duration) or 0
+    title = _coerced_str_field(raw_info, "title")
+    uploader = _coerced_str_field(raw_info, "uploader")
 
     vc = raw_info.get("view_count")
-    view_count: int | None = int(vc) if isinstance(vc, (int, float)) else None
+    view_count = _coerce_int(vc)
 
     channel_url = _optional_str_field(raw_info, "channel_url")
     upload_date = _optional_str_field(raw_info, "upload_date")
@@ -362,8 +416,45 @@ def _expected_extension(config: DownloadConfig) -> str:
     return config.format.value
 
 
+def _resolve_output_base(output_dir: Path) -> Path:
+    """
+    Best-effort canonical directory for containment checks and mtime fallback.
+
+    Prefer :meth:`Path.resolve`; on ``OSError`` fall back to :meth:`Path.absolute` so
+    :func:`download` and :func:`_find_newest_output_file` share the same anchor when
+    ``resolve`` is unavailable (permissions, transient FS errors).
+    """
+    try:
+        return output_dir.resolve()
+    except OSError:
+        try:
+            return output_dir.absolute()
+        except OSError:
+            return output_dir
+
+
+def _is_under_output_dir(candidate: Path, output_dir_resolved: Path) -> bool:
+    """True when ``candidate`` resolves to a file inside ``output_dir_resolved`` (no path escape)."""
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        return False
+    try:
+        resolved.relative_to(output_dir_resolved)
+    except ValueError:
+        return False
+    return resolved.is_file()
+
+
 def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
+    """
+    Fallback when yt-dlp hooks did not record a final path.
+
+    Picks the newest ``.{ext}`` file under ``output_dir`` (resolved) within
+    :data:`FILE_DISCOVERY_WINDOW_SECONDS`, ignoring files outside the output tree.
+    """
     ext = ext.lower().lstrip(".")
+    base = _resolve_output_base(output_dir)
     cutoff = time.time() - FILE_DISCOVERY_WINDOW_SECONDS
     best: tuple[float, Path] | None = None
     try:
@@ -372,11 +463,13 @@ def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
                 continue
             if path.suffix.lower() != f".{ext}":
                 continue
+            if not _is_under_output_dir(path, base):
+                continue
             mtime = path.stat().st_mtime
             if mtime < cutoff:
                 continue
             if best is None or mtime > best[0]:
-                best = (mtime, path)
+                best = (mtime, path.resolve())
     except OSError as e:
         log.warning("Failed to scan output_dir %s: %s", output_dir, e)
         return None
@@ -412,27 +505,60 @@ def download(
     Steps:
     1. Record start time
     2. Ensure config.output_dir exists (mkdir parents, exist_ok)
-    3. Build opts via build_ydl_opts(config, progress_hook)
-    4. Call ydl.download([config.url]), retrying on DownloadError up to ``retries``
+    3. Build opts via ``build_ydl_opts(config, progress_hook)``, then append a
+       ``postprocessor_hooks`` entry so yt-dlp reports the final filepath after merge /
+       ffmpeg (when postprocessors run).
+    4. Call ``ydl.download([config.url])``, retrying on DownloadError up to ``retries``
        times (from ``config.retries`` when ``retries`` is None) with
        ``RETRY_BACKOFF_SECONDS`` between attempts
-    5. On success → find the output file and return DownloadResult(status=SUCCESS)
+    5. On success → resolve the output path in order: last valid **postprocessor**
+       ``finished`` filepath, then last valid **progress** ``finished`` filename, then
+       :func:`_find_newest_output_file` under ``output_dir``. Paths must lie under the
+       output directory and match the expected format extension (intermediate or wrong
+       suffix paths from yt-dlp are ignored so the final file can still be found via
+       mtime fallback). If nothing matches, status is still ``SUCCESS`` but
+       ``filepath`` is ``None`` and a warning is logged.
     6. On exhausted DownloadError → return DownloadResult(status=FAILED, error=...)
     7. On any other exception → re-raise as EngineError
     """
     started = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    finished_paths: list[Path] = []
+    progress_finished_paths: list[Path] = []
+    postprocessor_finished_paths: list[Path] = []
+
+    output_base = _resolve_output_base(config.output_dir)
+
+    ext_suffix = f".{_expected_extension(config).lower().lstrip('.')}"
+
+    def _record_if_valid_output(path: Path, bucket: list[Path]) -> None:
+        if not _is_under_output_dir(path, output_base):
+            return
+        # Match configured container extension only: ignore yt-dlp intermediates
+        # (.part, pre-merge names) so they do not occupy hook slots; mtime fallback
+        # still discovers the final file when hooks omit the true output.
+        if path.suffix.lower() != ext_suffix:
+            return
+        bucket.append(path.resolve())
 
     def _wrapped_progress_hook(d: ProgressData) -> None:
         if progress_hook is not None:
             progress_hook(d)
-        if d.get("status") == YtdlpStatus.FINISHED.value:
+        if d.get("status") in _YTDL_PROGRESS_STATUSES_RECORD_OUTPUT:
             fn = d.get("filename")
             if isinstance(fn, str) and fn.strip():
-                finished_paths.append(Path(fn))
+                _record_if_valid_output(Path(fn), progress_finished_paths)
+
+    def _postprocessor_hook(d: dict[str, Any]) -> None:
+        # yt-dlp calls this with ``status`` ``started`` / ``finished``; ``filepath`` is set when done.
+        if d.get("status") != "finished":
+            return
+        fp = d.get("filepath")
+        if isinstance(fp, str) and fp.strip():
+            _record_if_valid_output(Path(fp), postprocessor_finished_paths)
 
     opts = build_ydl_opts(config, progress_hook=_wrapped_progress_hook)
+    existing_pp_hooks = list(opts.get("postprocessor_hooks") or [])
+    opts["postprocessor_hooks"] = existing_pp_hooks + [_postprocessor_hook]
     max_retries = config.retries if retries is None else retries
 
     attempt = 0
@@ -444,7 +570,8 @@ def download(
                 _emit_retry_log(config.url, attempt + 1, max_retries)
                 time.sleep(RETRY_BACKOFF_SECONDS)
                 attempt += 1
-                finished_paths.clear()
+                progress_finished_paths.clear()
+                postprocessor_finished_paths.clear()
                 continue
             elapsed = time.perf_counter() - started
             return DownloadResult(
@@ -460,12 +587,26 @@ def download(
 
         elapsed = time.perf_counter() - started
         filepath: Path | None = None
-        for candidate in reversed(finished_paths):
+        for candidate in reversed(postprocessor_finished_paths):
             if candidate.is_file():
                 filepath = candidate
                 break
         if filepath is None:
+            for candidate in reversed(progress_finished_paths):
+                if candidate.is_file():
+                    filepath = candidate
+                    break
+        if filepath is None:
             filepath = _find_newest_output_file(
+                config.output_dir,
+                _expected_extension(config),
+            )
+        if filepath is None:
+            log.warning(
+                "Download finished for %s but no output filepath was resolved "
+                "(output_dir=%s, ext=%s). Hooks may not have reported a final file, or "
+                "nothing matched inside the discovery window.",
+                config.url,
                 config.output_dir,
                 _expected_extension(config),
             )
@@ -477,6 +618,60 @@ def download(
             duration_s=elapsed,
             finished_at=datetime.now(),
         )
+
+
+@dataclass
+class _BatchWorker:
+    """
+    Encapsulates concurrent batch download: serialized progress / on_result callbacks,
+    per-URL :func:`download`, and executor fan-out.
+    """
+
+    job: BatchJob
+    progress_hook: ProgressHook | None = None
+    on_result: Callable[[DownloadResult], None] | None = None
+    _hook_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def _safe_progress_hook(self, d: ProgressData) -> None:
+        if self.progress_hook is None:
+            return
+        with self._hook_lock:
+            self.progress_hook(d)
+
+    def _run_one(self, url: str) -> DownloadResult:
+        per_config = self.job.config.model_copy(update={"url": url})
+        try:
+            result = download(per_config, self._safe_progress_hook)
+        except EngineError as e:
+            result = DownloadResult(
+                url=url,
+                status=DownloadStatus.FAILED,
+                filepath=None,
+                error=str(e),
+                duration_s=None,
+                finished_at=datetime.now(),
+            )
+        if self.on_result is not None:
+            with self._hook_lock:
+                self.on_result(result)
+        return result
+
+    def run(self) -> BatchJob:
+        n = len(self.job.urls)
+        if n == 0:
+            return self.job
+
+        max_workers = max(1, min(n, self.job.config.max_concurrent))
+        if max_workers == 1:
+            for url in self.job.urls:
+                self.job.results.append(self._run_one(url))
+            return self.job
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(self._run_one, url) for url in self.job.urls]
+            for fut in futures:
+                self.job.results.append(fut.result())
+        return self.job
 
 
 def download_batch(
@@ -496,44 +691,4 @@ def download_batch(
     Returns the mutated BatchJob with all results populated.
     Never raises — failed URLs are captured in DownloadResult(status=FAILED).
     """
-    hook_lock = threading.Lock()
-
-    def _safe_progress_hook(d: ProgressData) -> None:
-        if progress_hook is None:
-            return
-        with hook_lock:
-            progress_hook(d)
-
-    def _run_one(url: str) -> DownloadResult:
-        per_config = job.config.model_copy(update={"url": url})
-        try:
-            result = download(per_config, _safe_progress_hook)
-        except EngineError as e:
-            result = DownloadResult(
-                url=url,
-                status=DownloadStatus.FAILED,
-                filepath=None,
-                error=str(e),
-                duration_s=None,
-                finished_at=datetime.now(),
-            )
-        if on_result is not None:
-            with hook_lock:
-                on_result(result)
-        return result
-
-    n = len(job.urls)
-    if n == 0:
-        return job
-
-    max_workers = max(1, min(n, job.config.max_concurrent))
-    if max_workers == 1:
-        for url in job.urls:
-            job.results.append(_run_one(url))
-        return job
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_one, url) for url in job.urls]
-        for fut in futures:
-            job.results.append(fut.result())
-    return job
+    return _BatchWorker(job, progress_hook, on_result).run()

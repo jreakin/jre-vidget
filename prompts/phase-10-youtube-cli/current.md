@@ -45,7 +45,7 @@ existing commands. The `download` command already exists. Follow the same patter
 - Commands use `typer.Option()` for flags
 - Rich output via `console = Console()` from `ui.py`
 - Errors print via `console.print(...)` then `raise typer.Exit(code)`
-- `AppConfig.load()` called at the start of commands that need user config
+- `load_app_config()` called at the start of commands that need user config
 
 ---
 
@@ -67,7 +67,8 @@ import pytest
 from typer.testing import CliRunner
 
 from jre_vidget.cli import app
-from jre_vidget.models import AuthConfig, PublishResult
+from jre_vidget.config import load_app_config, save_app_config
+from jre_vidget.models import AppConfig, AuthConfig, PublishResult
 
 runner = CliRunner()
 
@@ -77,8 +78,8 @@ runner = CliRunner()
 # ---------------------------------------------------------------------------
 class TestAuthLogin:
     def test_login_prompts_for_credentials(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         mock_auth_config = AuthConfig(
             client_id="cid",
@@ -96,8 +97,8 @@ class TestAuthLogin:
         assert "connected" in result.output.lower() or "success" in result.output.lower()
 
     def test_login_saves_credentials(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         mock_auth_config = AuthConfig(
             client_id="cid",
@@ -111,8 +112,7 @@ class TestAuthLogin:
                 input="cid\ncsecret\n",
             )
 
-        from jre_vidget.models import AppConfig
-        cfg = AppConfig.load()
+        cfg = load_app_config()
         assert cfg.auth.refresh_token == "saved_token"
 
 
@@ -121,21 +121,20 @@ class TestAuthLogin:
 # ---------------------------------------------------------------------------
 class TestAuthStatus:
     def test_shows_connected_when_token_present(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "status"])
         assert result.exit_code == 0
         assert "connected" in result.output.lower()
 
     def test_shows_not_connected_when_no_token(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         result = runner.invoke(app, ["auth", "status"])
         assert result.exit_code == 0
@@ -147,18 +146,17 @@ class TestAuthStatus:
 # ---------------------------------------------------------------------------
 class TestAuthLogout:
     def test_logout_clears_token(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "logout"])
         assert result.exit_code == 0
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is None
 
 
@@ -167,16 +165,15 @@ class TestAuthLogout:
 # ---------------------------------------------------------------------------
 class TestPublishCommand:
     def test_publish_success(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         mock_result = PublishResult(
             video_id="abc123",
@@ -191,16 +188,15 @@ class TestPublishCommand:
         assert "abc123" in result.output
 
     def test_publish_with_custom_title(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -213,8 +209,8 @@ class TestPublishCommand:
         assert publish_config.title == "Custom Title"
 
     def test_publish_exits_3_when_not_authenticated(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
@@ -226,16 +222,15 @@ class TestPublishCommand:
         assert result.exit_code == 3
 
     def test_publish_exits_1_on_publish_error(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         from jre_vidget.publisher import PublishError
         with patch("jre_vidget.cli.publisher.upload", side_effect=PublishError("bad")):
@@ -244,16 +239,15 @@ class TestPublishCommand:
         assert result.exit_code == 1
 
     def test_publish_privacy_flag(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         video = tmp_path / "video.mp4"
         video.write_bytes(b"data")
 
-        from jre_vidget.models import AppConfig
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -271,8 +265,8 @@ class TestPublishCommand:
 # ---------------------------------------------------------------------------
 class TestDownloadWithPublish:
     def test_download_publish_calls_fetch_info_first(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         from jre_vidget.models import (
             AppConfig, DownloadResult, DownloadStatus, VideoInfo,
@@ -281,7 +275,7 @@ class TestDownloadWithPublish:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -316,8 +310,8 @@ class TestDownloadWithPublish:
         assert "xyz" in result.output
 
     def test_download_publish_uses_scraped_title(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         from jre_vidget.models import (
             AppConfig, DownloadResult, DownloadStatus, VideoInfo,
@@ -326,7 +320,7 @@ class TestDownloadWithPublish:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -358,8 +352,8 @@ class TestDownloadWithPublish:
         assert publish_config.title == "Fox News Segment"
 
     def test_download_publish_title_override(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         from jre_vidget.models import (
             AppConfig, DownloadResult, DownloadStatus,
@@ -368,7 +362,7 @@ class TestDownloadWithPublish:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -400,8 +394,8 @@ class TestDownloadWithPublish:
         assert publish_config.title == "My Override"
 
     def test_download_without_publish_does_not_call_publisher(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         from jre_vidget.models import DownloadResult, DownloadStatus
         from datetime import datetime
@@ -461,6 +455,8 @@ console = Console()
 ### Step 3 — Add `auth` subcommand group to `cli.py`
 
 ```python
+from jre_vidget.config import load_app_config, save_app_config
+
 auth_app = typer.Typer(name="auth", help="Manage YouTube account connection.")
 app.add_typer(auth_app)
 
@@ -468,7 +464,7 @@ app.add_typer(auth_app)
 @auth_app.command("login")
 def auth_login() -> None:
     """Connect your YouTube account via browser OAuth."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
 
     # Reuse stored credentials if already present
     client_id = cfg.auth.client_id or typer.prompt("Google OAuth Client ID")
@@ -483,14 +479,14 @@ def auth_login() -> None:
         raise typer.Exit(1)
 
     cfg.auth = auth_config
-    cfg.save()
+    save_app_config(cfg)
     console.print("[green]✓[/green] YouTube connected successfully.")
 
 
 @auth_app.command("status")
 def auth_status() -> None:
     """Show YouTube connection status."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     if cfg.auth.refresh_token:
         console.print("[green]✓[/green] YouTube  connected")
     else:
@@ -500,7 +496,7 @@ def auth_status() -> None:
 @auth_app.command("logout")
 def auth_logout() -> None:
     """Disconnect your YouTube account."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     auth.logout(cfg)
     console.print("[green]✓[/green] YouTube disconnected.")
 ```
@@ -510,6 +506,8 @@ def auth_logout() -> None:
 ### Step 4 — Add `publish` command to `cli.py`
 
 ```python
+from jre_vidget.config import load_app_config
+
 @app.command()
 def publish(
     filepath: Path = typer.Argument(..., help="Path to the local video file to upload."),
@@ -519,7 +517,7 @@ def publish(
     remove: bool = typer.Option(False, "--remove", help="Delete local file after successful upload."),
 ) -> None:
     """Upload a local video file to your YouTube channel."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
 
     if not filepath.exists():
         console.print(f"[red]File not found:[/red] {filepath}")
@@ -568,8 +566,9 @@ pub_remove: bool = typer.Option(False, "--remove", help="Delete local file after
 
 ```python
 # Add at the end of the download() function body, after a successful download:
+# (ensure ``from jre_vidget.config import load_app_config`` at module scope)
 if publish_flag and result.status == DownloadStatus.SUCCESS and result.filepath:
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     # fetch_info was called before download — use scraped title or fall back to URL
     resolved_title = pub_title or (video_info.title if video_info else url)
 

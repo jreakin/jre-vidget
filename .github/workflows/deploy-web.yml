@@ -26,6 +26,10 @@ jobs:
         run: npm ci
         working-directory: web
 
+      - name: Unit tests (Vitest)
+        run: npm test
+        working-directory: web
+
       - name: Build
         env:
           VITE_APP_TITLE: ${{ vars.VITE_APP_TITLE }}

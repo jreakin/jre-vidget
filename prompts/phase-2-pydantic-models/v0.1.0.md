@@ -156,10 +156,13 @@ class DownloadConfig(BaseModel):
 
 ---
 
-#### `AppConfig` — user's persistent preferences (saved to disk)
-```python
-CONFIG_PATH = Path.home() / ".vidget" / "config.json"
+#### `AppConfig` — user's persistent preferences (shape only)
 
+Read/write `~/.vidget/config.json` through **`jre_vidget.config`** (`CONFIG_PATH`,
+`load_app_config()`, `save_app_config()`). Keep `AppConfig` as a plain `BaseModel`
+— do **not** add `load`/`save` methods on the class.
+
+```python
 class AppConfig(BaseModel):
     output_dir:     Path         = Path.home() / "Downloads"
     quality:        Quality      = Quality.BEST
@@ -168,16 +171,6 @@ class AppConfig(BaseModel):
     max_concurrent: int          = 3
 
     model_config = {"arbitrary_types_allowed": True}
-
-    @classmethod
-    def load(cls) -> "AppConfig":
-        if CONFIG_PATH.exists():
-            return cls.model_validate_json(CONFIG_PATH.read_text())
-        return cls()
-
-    def save(self) -> None:
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(self.model_dump_json(indent=2))
 ```
 
 ---
@@ -237,10 +230,12 @@ def test_video_format_audio_only():
     assert f.is_audio_only
 
 def test_app_config_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setattr("jre_vidget.models.CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
+    from jre_vidget.config import load_app_config, save_app_config
+
     cfg = AppConfig(quality=Quality.P720)
-    cfg.save()
-    loaded = AppConfig.load()
+    save_app_config(cfg)
+    loaded = load_app_config()
     assert loaded.quality == Quality.P720
 
 def test_batch_job_counts():

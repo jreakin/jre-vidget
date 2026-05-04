@@ -8,7 +8,8 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
-from jre_vidget.models import AppConfig, BatchJob, OutputFormat, Quality
+from jre_vidget.config import load_app_config
+from jre_vidget.models import BatchJob, OutputFormat, Quality
 
 
 def batch(
@@ -32,12 +33,12 @@ def batch(
         cc.ui.print_error("File not found", str(file))
         raise typer.Exit(code=1)
 
-    urls = cc._read_batch_urls(file)
+    urls = cc.read_batch_urls(file)
     if not json_output:
         cc.ui.print_batch_intro(len(urls))
 
-    cfg = AppConfig.load()
-    base = cc._resolve_download_config(
+    cfg = load_app_config()
+    base = cc.resolve_download_config(
         cfg,
         quality,
         out_format,
@@ -48,12 +49,12 @@ def batch(
     )
     job = BatchJob(urls=urls, config=base)
     try:
-        if json_output:
-            cc.engine.download_batch(job, progress_hook=None, on_result=None)
-        else:
-            hook, progress_ctx = cc.ui.make_progress_hook()
-            with progress_ctx:
-                cc.engine.download_batch(job, progress_hook=hook, on_result=cc.ui.print_result)
+        with cc.progress_hook_session(json_output=json_output) as hook:
+            cc.engine.download_batch(
+                job,
+                progress_hook=hook,
+                on_result=None if json_output else cc.ui.print_result,
+            )
     except KeyboardInterrupt:
         cc.ui.print_error("Download cancelled.", "Ctrl-C received.")
         raise typer.Exit(code=130) from None

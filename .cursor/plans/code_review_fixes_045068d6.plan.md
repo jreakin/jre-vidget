@@ -47,7 +47,7 @@ Source: [May 4, 2026: jre-vidget Code Review Report](https://www.notion.so/abstr
 
 ## Preconditions (repo rules)
 
-- Before editing symbols, run GitNexus **impact** upstream for each touched public symbol (e.g. `AuthConfig`, `get_credentials`, `download`, `download_batch`, `AppConfig.load` / `save`, CLI commands). Warn if any result is HIGH/CRITICAL.
+- Before editing symbols, run GitNexus **impact** upstream for each touched public symbol (e.g. `AuthConfig`, `get_credentials`, `download`, `download_batch`, `load_app_config` / `save_app_config`, CLI commands). Warn if any result is HIGH/CRITICAL.
 - After implementation, run `uv run pytest`, `uv run ruff check src/`, `uv run ty check src/ tests/`, and GitNexus **detect_changes** before commit.
 - Re-run `npx gitnexus analyze` after merge if the graph is used for follow-up work.
 
