@@ -76,6 +76,34 @@ class EngineError(Exception):
     """Raised when yt-dlp or ffmpeg encounters an unrecoverable error."""
 
 
+class _ExtractionError(Exception):
+    """Internal: ``extract_info`` failed or returned a non-dict payload."""
+
+    __slots__ = ()
+
+
+def _extract_raw_info(
+    url: str,
+    extra_opts: dict[str, Any],
+    *,
+    non_dict_message: str = "extract_info returned unexpected payload",
+) -> dict[str, Any]:
+    """
+    Run yt-dlp ``extract_info(..., download=False)`` with shared base opts.
+
+    Callers map :class:`_ExtractionError` to :class:`EngineError` or :class:`DownloadError`.
+    """
+    opts: dict[str, Any] = {**_base_ydl_opts(), **extra_opts}
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            raw = ydl.extract_info(url, download=False)
+    except (YtdlpDownloadError, ExtractorError) as e:
+        raise _ExtractionError(str(e)) from e
+    if not isinstance(raw, dict):
+        raise _ExtractionError(non_dict_message)
+    return raw
+
+
 def _ydl_format_for_config(config: DownloadConfig) -> str:
     if config.format.is_audio_only:
         return Quality.AUDIO.ydl_format
@@ -236,18 +264,10 @@ def fetch_info(url: str) -> VideoInfo:
     2. Map the raw info dict → VideoInfo (and its nested VideoFormat list)
     3. Raise EngineError if yt-dlp raises DownloadError / ExtractorError
     """
-    opts: dict[str, Any] = {
-        **_base_ydl_opts(),
-        "extract_flat": False,
-    }
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            raw = ydl.extract_info(url, download=False)
-    except (YtdlpDownloadError, ExtractorError) as e:
+        raw = _extract_raw_info(url, {"extract_flat": False})
+    except _ExtractionError as e:
         raise EngineError(str(e)) from e
-
-    if not isinstance(raw, dict):
-        raise EngineError("extract_info returned unexpected payload")
 
     return _raw_to_video_info(raw, url)
 
@@ -293,19 +313,14 @@ def preview(url: str) -> VideoPreview:
 
     Raises DownloadError on network failure, unsupported URL, or empty response.
     """
-    opts: dict[str, Any] = {
-        **_base_ydl_opts(),
-        "skip_download": True,
-        "extract_flat": False,
-    }
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            raw_info = ydl.extract_info(url, download=False)
-    except (YtdlpDownloadError, ExtractorError) as e:
+        raw_info = _extract_raw_info(
+            url,
+            {"skip_download": True, "extract_flat": False},
+            non_dict_message=f"No metadata returned for {url}",
+        )
+    except _ExtractionError as e:
         raise DownloadError(str(e)) from e
-
-    if not isinstance(raw_info, dict):
-        raise DownloadError(f"No metadata returned for {url}")
 
     desc = raw_info.get("description")
     description = desc if isinstance(desc, str) else ""

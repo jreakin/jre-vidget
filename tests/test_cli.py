@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from jre_vidget.cli import app
-from jre_vidget.models import BatchJob, DownloadResult, DownloadStatus, VideoInfo
+from jre_vidget.cli import _resolve_download_config, app
+from jre_vidget.models import AppConfig, BatchJob, DownloadResult, DownloadStatus, VideoInfo
 
 runner = CliRunner()
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
@@ -25,6 +25,54 @@ def test_download_help() -> None:
     assert result.exit_code == 0
     plain = _strip_ansi(result.output)
     assert "--quality" in plain
+    assert "--subs" in plain
+
+
+def test_resolve_download_config_subs_tri_state(tmp_path: Path) -> None:
+    """None → saved default; False/--no-subs must override cfg.subtitles=True."""
+    cfg = AppConfig(output_dir=tmp_path, subtitles=True)
+    assert _resolve_download_config(cfg, None, None, None, None, "https://x.com").subtitles is True
+    assert (
+        _resolve_download_config(cfg, None, None, None, False, "https://x.com").subtitles is False
+    )
+    cfg_off = AppConfig(output_dir=tmp_path, subtitles=False)
+    assert (
+        _resolve_download_config(cfg_off, None, None, None, True, "https://x.com").subtitles is True
+    )
+
+
+def test_resolve_download_config_max_concurrent_optional(tmp_path: Path) -> None:
+    cfg = AppConfig(output_dir=tmp_path)
+    assert (
+        _resolve_download_config(cfg, None, None, None, None, "https://x.com").max_concurrent == 3
+    )
+    assert (
+        _resolve_download_config(cfg, None, None, None, None, "", max_concurrent=7).max_concurrent
+        == 7
+    )
+
+
+def test_download_publish_missing_filepath_exits_1(tmp_path: Path) -> None:
+    fake_result = DownloadResult(
+        url="https://x.com",
+        status=DownloadStatus.SUCCESS,
+        filepath=None,
+    )
+    info = VideoInfo(
+        id="1",
+        title="T",
+        url="https://x.com",
+        webpage_url="https://x.com",
+    )
+    with (
+        patch("jre_vidget.cli.engine.download", return_value=fake_result),
+        patch("jre_vidget.cli.engine.fetch_info", return_value=info),
+    ):
+        result = runner.invoke(
+            app,
+            ["download", "https://x.com", "--output", str(tmp_path), "--publish"],
+        )
+    assert result.exit_code == 1
 
 
 def test_batch_missing_file_exits_1() -> None:

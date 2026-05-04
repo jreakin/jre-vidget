@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: rf-critical-cli
     content: RF-DRY-01 _extract_raw_info; RF-SMELL-02 replace assert fp; RF-DRY-02/04 _resolve_download_config + subs tri-state on download/batch
-    status: in_progress
+    status: completed
   - id: rf-enums-dry
     content: RF-SMELL-01 YtdlpStatus; RF-DRY-03 _str_field; RF-SMELL-03 PrivacyStatus through CLI/helpers
     status: pending

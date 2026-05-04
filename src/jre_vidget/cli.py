@@ -111,6 +111,33 @@ def _resolve(value: T | None, default: T) -> T:
     return value if value is not None else default
 
 
+def _resolve_download_config(
+    cfg: AppConfig,
+    quality: Quality | None,
+    out_format: OutputFormat | None,
+    output: Path | None,
+    subs: bool | None,
+    url: str,
+    *,
+    max_concurrent: int | None = None,
+) -> DownloadConfig:
+    """Merge CLI overrides with saved defaults (``subs`` uses tri-state: None → config)."""
+    resolved_quality = _resolve(quality, cfg.quality)
+    resolved_format = _resolve(out_format, cfg.format)
+    resolved_output = _validate_output(_resolve(output, cfg.output_dir))
+    resolved_subs = cfg.subtitles if subs is None else subs
+    kwargs: dict[str, object] = {
+        "url": url,
+        "quality": resolved_quality,
+        "format": resolved_format,
+        "output_dir": resolved_output,
+        "subtitles": resolved_subs,
+    }
+    if max_concurrent is not None:
+        kwargs["max_concurrent"] = max_concurrent
+    return DownloadConfig.model_validate(kwargs)
+
+
 def _read_batch_urls(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     urls: list[str] = []
@@ -182,10 +209,17 @@ def _publish_after_download(
     pub_remove: bool,
     video_info: VideoInfo | None,
     url: str,
+    json_output: bool = False,
 ) -> PublishResult:
     """Upload the downloaded file to YouTube. Exits the process on auth or upload errors."""
     fp = result.filepath
-    assert fp is not None  # caller only invokes when filepath is set
+    if fp is None:
+        msg = "Download reported success but no output file path was recorded; cannot publish."
+        if json_output:
+            sys.stderr.write(f"publish error: {msg}\n")
+        else:
+            ui.print_error("Cannot publish", msg)
+        raise typer.Exit(code=1)
     pub_privacy_parsed = _parse_privacy(pub_privacy)
     resolved_title = pub_title or (video_info.title if video_info else url)
     publish_config = PublishConfig(
@@ -227,7 +261,11 @@ def download(
         "-o",
         help="Output directory",
     ),
-    subs: bool = typer.Option(False, "--subs", help="Download subtitles if available"),
+    subs: bool | None = typer.Option(
+        None,
+        "--subs/--no-subs",
+        help="Download subtitles (default: saved config).",
+    ),
     publish_flag: bool = typer.Option(
         False,
         "--publish",
@@ -261,10 +299,7 @@ def download(
 ) -> None:
     """Download a single video."""
     cfg = AppConfig.load()
-    resolved_quality = _resolve(quality, cfg.quality)
-    resolved_format = _resolve(out_format, cfg.format)
-    resolved_output = _validate_output(_resolve(output, cfg.output_dir))
-    resolved_subs = subs if subs else cfg.subtitles
+    dl_cfg = _resolve_download_config(cfg, quality, out_format, output, subs, url)
 
     video_info = None
     if publish_flag:
@@ -276,14 +311,6 @@ def download(
             else:
                 console.print(f"[yellow]Warning:[/yellow] Could not fetch video info: {e}")
             video_info = None
-
-    dl_cfg = DownloadConfig(
-        url=url,
-        quality=resolved_quality,
-        format=resolved_format,
-        output_dir=resolved_output,
-        subtitles=resolved_subs,
-    )
 
     try:
         if json_output:
@@ -311,7 +338,7 @@ def download(
         raise typer.Exit(code=1)
 
     pub_result: PublishResult | None = None
-    if publish_flag and result.filepath:
+    if publish_flag:
         pub_result = _publish_after_download(
             cfg,
             result,
@@ -321,6 +348,7 @@ def download(
             pub_remove=pub_remove,
             video_info=video_info,
             url=url,
+            json_output=json_output,
         )
 
     if json_output:
@@ -340,7 +368,11 @@ def batch(
     quality: Quality | None = typer.Option(None, "--quality", "-q"),
     out_format: OutputFormat | None = typer.Option(None, "--format", "-f"),
     output: Path | None = typer.Option(None, "--output", "-o"),
-    subs: bool = typer.Option(False, "--subs"),
+    subs: bool | None = typer.Option(
+        None,
+        "--subs/--no-subs",
+        help="Download subtitles (default: saved config).",
+    ),
     json_output: bool = typer.Option(
         False,
         "--json",
@@ -357,13 +389,13 @@ def batch(
         ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
-    out_dir = _validate_output(_resolve(output, cfg.output_dir))
-    base = DownloadConfig(
-        url="",
-        quality=_resolve(quality, cfg.quality),
-        format=_resolve(out_format, cfg.format),
-        output_dir=out_dir,
-        subtitles=subs if subs else cfg.subtitles,
+    base = _resolve_download_config(
+        cfg,
+        quality,
+        out_format,
+        output,
+        subs,
+        "",
         max_concurrent=cfg.max_concurrent,
     )
     job = BatchJob(urls=urls, config=base)
