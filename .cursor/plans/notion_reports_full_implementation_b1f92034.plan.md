@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase-b-cli-core
     content: "RF-DRY-01, RF-ARCH-02, P3-QUAL-004, RF-DRY-04, RF-SMELL-03, RF-SMELL-01/P3-QUAL-002: shared upload wrapper; Console(stderr=True); lru_cache logging + optional JSON format; interactive confirm helper; narrow auth_cmd except; rename cli_common exports/__all__"
-    status: pending
+    status: completed
   - id: phase-c-structure
     content: "RF-COMPLEX-01/02, P1-ARCH-001, P2-DRY-001: _BatchWorker in engine; download.py helpers; publish_cmd remote/local; progress hook contextmanager in cli_common"
     status: pending

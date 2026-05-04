@@ -55,7 +55,7 @@ def history_append(
     ),
 ) -> None:
     """Prepend one upload record and ensure ``schemaVersion`` is set."""
-    privacy_status = cc._parse_privacy(privacy)
+    privacy_status = cc.parse_privacy(privacy)
     try:
         record = history.append_upload_record(
             file,

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import typer
@@ -17,6 +19,7 @@ from jre_vidget import config as vidget_config
 from jre_vidget.auth import AuthError
 from jre_vidget.models import (
     AppConfig,
+    AuthConfig,
     DownloadConfig,
     DownloadResult,
     OutputFormat,
@@ -28,9 +31,21 @@ from jre_vidget.models import (
 )
 from jre_vidget.publisher import PublishError
 
-console = Console()
+console = Console(stderr=True)
 
-_logging_configured = False
+
+class _JsonLineFormatter(logging.Formatter):
+    """One JSON object per log line (stdlib only; enable via ``VIDGET_LOG_FORMAT=json``)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, object] = {
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
 
 
 def _log_level_from_env() -> int:
@@ -41,21 +56,29 @@ def _log_level_from_env() -> int:
     return candidate if isinstance(candidate, int) else logging.WARNING
 
 
-def _ensure_cli_logging() -> None:
-    """Apply ``logging.basicConfig`` once per process from ``VIDGET_LOG_LEVEL``."""
-    global _logging_configured
-    if _logging_configured:
+@lru_cache(maxsize=1)
+def ensure_cli_logging() -> None:
+    """Configure root logging once per process from ``VIDGET_LOG_LEVEL`` and optional ``VIDGET_LOG_FORMAT``."""
+    root = logging.getLogger()
+    if root.handlers:
         return
-    logging.basicConfig(level=_log_level_from_env())
-    _logging_configured = True
+    level = _log_level_from_env()
+    handler = logging.StreamHandler(sys.stderr)
+    fmt = os.getenv("VIDGET_LOG_FORMAT", "").strip().lower()
+    if fmt == "json":
+        handler.setFormatter(_JsonLineFormatter())
+    else:
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    root.addHandler(handler)
+    root.setLevel(level)
 
 
-def _is_headless() -> bool:
+def is_headless() -> bool:
     """True when stdin is not a TTY (pipelines, CI, Typer CliRunner)."""
     return not sys.stdin.isatty()
 
 
-def _parse_privacy(value: str) -> PrivacyStatus:
+def parse_privacy(value: str) -> PrivacyStatus:
     """Validate CLI / workflow privacy string → :class:`PrivacyStatus` with a stable error message."""
     try:
         return PrivacyStatus(value)
@@ -63,7 +86,7 @@ def _parse_privacy(value: str) -> PrivacyStatus:
         raise typer.BadParameter("privacy must be public, unlisted, or private") from None
 
 
-def _resolve_download_config(
+def resolve_download_config(
     cfg: AppConfig,
     quality: Quality | None,
     out_format: OutputFormat | None,
@@ -76,7 +99,7 @@ def _resolve_download_config(
     """Merge CLI overrides with saved defaults (``subs`` uses tri-state: None → config)."""
     resolved_quality = quality if quality is not None else cfg.quality
     resolved_format = out_format if out_format is not None else cfg.format
-    resolved_output = _validate_output(output if output is not None else cfg.output_dir)
+    resolved_output = validate_output(output if output is not None else cfg.output_dir)
     resolved_subs = cfg.subtitles if subs is None else subs
     kwargs: dict[str, object] = {
         "url": url,
@@ -90,7 +113,7 @@ def _resolve_download_config(
     return DownloadConfig.model_validate(kwargs)
 
 
-def _read_batch_urls(path: Path) -> list[str]:
+def read_batch_urls(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     urls: list[str] = []
     for line in text.splitlines():
@@ -101,12 +124,12 @@ def _read_batch_urls(path: Path) -> list[str]:
     return urls
 
 
-def _is_remote_publish_target(target: str) -> bool:
+def is_remote_publish_target(target: str) -> bool:
     t = target.strip()
     return t.startswith(("http://", "https://"))
 
 
-def _dispatch_publish_workflow(
+def dispatch_publish_workflow(
     *,
     url: str,
     title: str,
@@ -141,7 +164,7 @@ def _dispatch_publish_workflow(
         raise RuntimeError(detail) from e
 
 
-def _validate_output(path: Path) -> Path:
+def validate_output(path: Path) -> Path:
     """Ensure the path exists or can be created, and is writable."""
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -161,7 +184,7 @@ class PublishOptions:
     remove_after_upload: bool
 
 
-def _resolve_publish_title_for_download(
+def resolve_publish_title_for_download(
     options: PublishOptions,
     *,
     video_info: VideoInfo | None,
@@ -175,7 +198,7 @@ def _resolve_publish_title_for_download(
     return fallback_url
 
 
-def _publish_config_for_downloaded_file(
+def publish_config_for_downloaded_file(
     filepath: Path,
     options: PublishOptions,
     *,
@@ -183,7 +206,7 @@ def _publish_config_for_downloaded_file(
     url: str,
 ) -> PublishConfig:
     """Build :class:`PublishConfig` after a successful download."""
-    title = _resolve_publish_title_for_download(
+    title = resolve_publish_title_for_download(
         options,
         video_info=video_info,
         fallback_url=url,
@@ -197,7 +220,52 @@ def _publish_config_for_downloaded_file(
     )
 
 
-def _publish_after_download(
+def youtube_upload_or_exit(
+    publish_config: PublishConfig,
+    auth_config: AuthConfig,
+    *,
+    json_output: bool = False,
+) -> PublishResult:
+    """Run resumable upload with a Rich spinner; map auth/upload failures to ``typer.Exit``."""
+    try:
+        with console.status("Uploading to YouTube…"):
+            return publisher.upload(publish_config, auth_config)
+    except AuthError as e:
+        if json_output:
+            sys.stderr.write(f"publish auth error: {e}\n")
+        else:
+            console.print(f"[red]YouTube auth error:[/red] {e}")
+        raise typer.Exit(code=3) from e
+    except PublishError as e:
+        if json_output:
+            sys.stderr.write(f"publish error: {e}\n")
+        else:
+            console.print(f"[red]YouTube upload failed:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+
+def require_interactive_confirm(
+    *,
+    yes: bool,
+    prompt: str,
+    headless_denial_message: str,
+    headless_exit_code: int = 2,
+    decline_rich_message: str | None = None,
+    confirm_default: bool = False,
+) -> None:
+    """Unless ``yes`` is set, require a TTY and a positive ``typer.confirm`` (else exit)."""
+    if yes:
+        return
+    if is_headless():
+        console.print(f"[red]{headless_denial_message}[/red]")
+        raise typer.Exit(code=headless_exit_code)
+    if not typer.confirm(prompt, default=confirm_default):
+        if decline_rich_message:
+            console.print(decline_rich_message)
+        raise typer.Exit(code=0)
+
+
+def publish_after_download(
     cfg: AppConfig,
     result: DownloadResult,
     *,
@@ -215,43 +283,37 @@ def _publish_after_download(
         else:
             ui.print_error("Cannot publish", msg)
         raise typer.Exit(code=1)
-    publish_config = _publish_config_for_downloaded_file(
+    publish_config = publish_config_for_downloaded_file(
         fp,
         options,
         video_info=video_info,
         url=url,
     )
-    try:
-        with console.status("Uploading to YouTube…"):
-            return publisher.upload(publish_config, cfg.auth)
-    except AuthError as e:
-        console.print(f"[red]YouTube auth error:[/red] {e}")
-        raise typer.Exit(code=3) from e
-    except PublishError as e:
-        console.print(f"[red]YouTube upload failed:[/red] {e}")
-        raise typer.Exit(code=1) from e
+    return youtube_upload_or_exit(publish_config, cfg.auth, json_output=json_output)
 
 
 __all__ = [
     "AuthError",
     "PublishError",
     "PublishOptions",
-    "_dispatch_publish_workflow",
-    "_ensure_cli_logging",
-    "_is_headless",
-    "_parse_privacy",
-    "_publish_after_download",
-    "_publish_config_for_downloaded_file",
-    "_read_batch_urls",
-    "_resolve_download_config",
-    "_resolve_publish_title_for_download",
-    "_validate_output",
     "auth",
     "checks",
     "console",
+    "dispatch_publish_workflow",
+    "ensure_cli_logging",
     "engine",
+    "is_headless",
+    "is_remote_publish_target",
+    "parse_privacy",
+    "publish_after_download",
+    "publish_config_for_downloaded_file",
     "publisher",
+    "read_batch_urls",
+    "require_interactive_confirm",
+    "resolve_download_config",
+    "resolve_publish_title_for_download",
     "ui",
+    "validate_output",
     "vidget_config",
-    "_is_remote_publish_target",
+    "youtube_upload_or_exit",
 ]

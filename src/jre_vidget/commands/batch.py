@@ -32,12 +32,12 @@ def batch(
         cc.ui.print_error("File not found", str(file))
         raise typer.Exit(code=1)
 
-    urls = cc._read_batch_urls(file)
+    urls = cc.read_batch_urls(file)
     if not json_output:
         cc.ui.print_batch_intro(len(urls))
 
     cfg = AppConfig.load()
-    base = cc._resolve_download_config(
+    base = cc.resolve_download_config(
         cfg,
         quality,
         out_format,

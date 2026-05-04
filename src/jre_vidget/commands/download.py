@@ -70,7 +70,7 @@ def download(
 ) -> None:
     """Download a single video."""
     cfg = AppConfig.load()
-    dl_cfg = cc._resolve_download_config(cfg, quality, out_format, output, subs, url)
+    dl_cfg = cc.resolve_download_config(cfg, quality, out_format, output, subs, url)
 
     video_info = None
     if publish_flag:
@@ -110,7 +110,7 @@ def download(
 
     pub_result = None
     if publish_flag:
-        pub_result = cc._publish_after_download(
+        pub_result = cc.publish_after_download(
             cfg,
             result,
             options=cc.PublishOptions(

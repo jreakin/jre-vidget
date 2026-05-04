@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 import pytest
@@ -32,3 +33,20 @@ def test_log_level_from_env_invalid_falls_back(monkeypatch: pytest.MonkeyPatch) 
 def test_log_level_from_env_empty_uses_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VIDGET_LOG_LEVEL", "   ")
     assert vidget_cli._log_level_from_env() == logging.WARNING
+
+
+def test_json_line_formatter_emits_one_json_object_per_line() -> None:
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="hello",
+        args=(),
+        exc_info=None,
+    )
+    line = vidget_cli._JsonLineFormatter().format(record)
+    data = json.loads(line)
+    assert data["level"] == "INFO"
+    assert data["logger"] == "test.logger"
+    assert data["message"] == "hello"

@@ -55,14 +55,14 @@ def config_reset(
     yes: bool = typer.Option(False, "--yes", help="Skip confirmation prompt"),
 ) -> None:
     """Reset all settings to defaults."""
-    if not yes:
-        if cc._is_headless():
-            cc.console.print(
-                "[red]Non-interactive mode: pass --yes to confirm resetting all config.[/red]",
-            )
-            raise typer.Exit(code=2)
-        if not typer.confirm("Reset all config to defaults?", default=False):
-            raise typer.Exit(code=0)
+    cc.require_interactive_confirm(
+        yes=yes,
+        prompt="Reset all config to defaults?",
+        headless_denial_message="Non-interactive mode: pass --yes to confirm resetting all config.",
+        headless_exit_code=2,
+        decline_rich_message=None,
+        confirm_default=False,
+    )
 
     if cc.vidget_config.CONFIG_PATH.exists():
         cc.vidget_config.CONFIG_PATH.unlink()

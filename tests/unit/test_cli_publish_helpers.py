@@ -6,8 +6,8 @@ from pathlib import Path
 
 from jre_vidget.cli import (
     PublishOptions,
-    _publish_config_for_downloaded_file,
-    _resolve_publish_title_for_download,
+    publish_config_for_downloaded_file,
+    resolve_publish_title_for_download,
 )
 from jre_vidget.models import PrivacyStatus, VideoInfo
 
@@ -26,7 +26,7 @@ def test_resolve_publish_title_explicit_wins() -> None:
         remove_after_upload=False,
     )
     assert (
-        _resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://u")
+        resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://u")
         == "CLI title"
     )
 
@@ -45,7 +45,7 @@ def test_resolve_publish_title_empty_string_falls_back_to_scraped() -> None:
         remove_after_upload=False,
     )
     assert (
-        _resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://u")
+        resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://u")
         == "scraped"
     )
 
@@ -64,7 +64,7 @@ def test_resolve_publish_title_none_uses_video_info() -> None:
         remove_after_upload=True,
     )
     assert (
-        _resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://fallback")
+        resolve_publish_title_for_download(opts, video_info=info, fallback_url="https://fallback")
         == "from info"
     )
 
@@ -77,7 +77,7 @@ def test_resolve_publish_title_fallback_url_when_no_info() -> None:
         remove_after_upload=False,
     )
     assert (
-        _resolve_publish_title_for_download(opts, video_info=None, fallback_url="https://only-url")
+        resolve_publish_title_for_download(opts, video_info=None, fallback_url="https://only-url")
         == "https://only-url"
     )
 
@@ -97,7 +97,7 @@ def test_publish_config_for_downloaded_file_matches_options(tmp_path: Path) -> N
         privacy=PrivacyStatus.UNLISTED,
         remove_after_upload=True,
     )
-    cfg = _publish_config_for_downloaded_file(
+    cfg = publish_config_for_downloaded_file(
         fp,
         opts,
         video_info=info,

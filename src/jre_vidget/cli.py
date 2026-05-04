@@ -10,12 +10,12 @@ import typer
 from jre_vidget import auth, checks, engine, publisher, ui
 from jre_vidget.cli_common import (
     PublishOptions,
-    _dispatch_publish_workflow,
-    _ensure_cli_logging,
-    _is_headless,
-    _publish_config_for_downloaded_file,
-    _resolve_download_config,
-    _resolve_publish_title_for_download,
+    dispatch_publish_workflow,
+    ensure_cli_logging,
+    is_headless,
+    publish_config_for_downloaded_file,
+    resolve_download_config,
+    resolve_publish_title_for_download,
 )
 from jre_vidget.commands import (
     auth_cmd,
@@ -62,7 +62,7 @@ def main(
     ),
 ) -> None:
     """Global options; runs before every subcommand."""
-    _ensure_cli_logging()
+    ensure_cli_logging()
     if ctx.invoked_subcommand not in ("config", "history"):
         checks.check_dependencies()
 
@@ -85,11 +85,11 @@ history_app.command("append")(history_cmd.history_append)
 
 __all__ = [
     "PublishOptions",
-    "_dispatch_publish_workflow",
-    "_is_headless",
-    "_publish_config_for_downloaded_file",
-    "_resolve_download_config",
-    "_resolve_publish_title_for_download",
+    "dispatch_publish_workflow",
+    "is_headless",
+    "publish_config_for_downloaded_file",
+    "resolve_download_config",
+    "resolve_publish_title_for_download",
     "app",
     "auth",
     "checks",

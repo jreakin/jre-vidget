@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typer
+from google.auth.exceptions import GoogleAuthError
 
 from jre_vidget import cli_common as cc
 from jre_vidget.models import AppConfig
@@ -21,7 +22,7 @@ def auth_login() -> None:
 
     try:
         auth_config = cc.auth.login_browser(client_id, client_secret)
-    except Exception as e:
+    except (GoogleAuthError, OSError, ValueError) as e:
         cc.console.print(f"[red]Login failed:[/red] {e}")
         raise typer.Exit(code=1) from e
 

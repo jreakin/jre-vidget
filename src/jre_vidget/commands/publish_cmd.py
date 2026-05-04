@@ -47,7 +47,7 @@ def publish(
     """Upload a local file to YouTube, or preview then dispatch Actions publish for a URL."""
     cfg = AppConfig.load()
 
-    if cc._is_remote_publish_target(target):
+    if cc.is_remote_publish_target(target):
         cc.console.print("[bold cyan]Fetching metadata…[/bold cyan]")
         try:
             meta = cc.engine.preview(target)
@@ -62,18 +62,19 @@ def publish(
 
         cc.ui.print_preview(meta)
 
-        if not yes:
-            if cc._is_headless():
-                cc.console.print(
-                    "[red]Non-interactive mode: pass --yes to confirm publishing to YouTube.[/red]",
-                )
-                raise typer.Exit(code=2)
-            if not typer.confirm("\nPublish this video to YouTube?", default=False):
-                cc.console.print("[yellow]Publish cancelled.[/yellow]")
-                raise typer.Exit(code=0)
+        cc.require_interactive_confirm(
+            yes=yes,
+            prompt="\nPublish this video to YouTube?",
+            headless_denial_message=(
+                "Non-interactive mode: pass --yes to confirm publishing to YouTube."
+            ),
+            headless_exit_code=2,
+            decline_rich_message="[yellow]Publish cancelled.[/yellow]",
+            confirm_default=False,
+        )
 
         try:
-            cc._dispatch_publish_workflow(
+            cc.dispatch_publish_workflow(
                 url=target,
                 title=meta.title,
                 description=meta.description,
@@ -105,15 +106,7 @@ def publish(
         remove_after_upload=remove,
     )
 
-    try:
-        with cc.console.status("Uploading to YouTube…"):
-            result = cc.publisher.upload(publish_config, cfg.auth)
-    except cc.AuthError as e:
-        cc.console.print(f"[red]Auth error:[/red] {e}")
-        raise typer.Exit(code=3) from e
-    except cc.PublishError as e:
-        cc.console.print(f"[red]Upload failed:[/red] {e}")
-        raise typer.Exit(code=1) from e
+    result = cc.youtube_upload_or_exit(publish_config, cfg.auth, json_output=False)
 
     cc.console.print(f"[green]✓[/green] Published: {result.url}")
     if result.removed_local_file:
