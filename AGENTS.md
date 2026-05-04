@@ -108,7 +108,7 @@ uv run pytest tests/unit -x      # Stop on first failure
 uv run pytest -v --cov=src       # Run with coverage report
 uv run ruff check src/           # Lint
 uv run ruff format src/          # Format
-uv run mypy src/ --strict        # Type check
+uv run ty check src/ tests/      # Type check (ty replaces mypy)
 ```
 
 ---
