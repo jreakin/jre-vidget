@@ -88,9 +88,7 @@ def get_credentials(auth: AuthConfig) -> Credentials:
         try:
             creds.refresh(Request())
         except RefreshError as e:
-            raise AuthError(
-                "YouTube session expired. Run 'vidget auth login' to reconnect."
-            ) from e
+            raise AuthError("YouTube session expired. Run 'vidget auth login' to reconnect.") from e
 
     return creds
 
