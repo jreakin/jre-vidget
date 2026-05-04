@@ -41,6 +41,8 @@ def progress_hook_session(*, json_output: bool) -> Iterator[engine.ProgressHook 
     Yield a Rich-backed yt-dlp progress hook, or ``None`` when ``json_output`` disables UI.
 
     When non-JSON, the Rich ``Progress`` context stays active for the whole ``with`` block.
+    Callers must run the yt-dlp work (e.g. ``engine.download`` / ``engine.download_batch``)
+    inside this ``with`` so the bar stays mounted for the full operation.
     """
     if json_output:
         yield None

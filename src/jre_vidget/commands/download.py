@@ -136,7 +136,7 @@ def download(
 
     if result.status != DownloadStatus.SUCCESS:
         if json_output:
-            typer.echo(json.dumps({"download": result.model_dump(mode="json")}, default=str))
+            emit_download_json_stdout(result, None)
         raise typer.Exit(code=1)
 
     pub_result = None
