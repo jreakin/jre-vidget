@@ -1,0 +1,3 @@
+ancestorEntries = [".cursor/hooks/state/continual-learning.json"]
+ourEntries = [".cursor/hooks/state/continual-learning.json", ".github/workflows/publish.yml", "docs/SETUP.md"]
+theirEntries = [".cursor/hooks/state/continual-learning.json", ".github/workflows/publish.yml", "docs/SETUP.md"]

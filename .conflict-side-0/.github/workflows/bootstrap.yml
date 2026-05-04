@@ -1,0 +1,141 @@
+name: Bootstrap — set up repo secrets and variables
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_title:
+        description: "Web UI title (shown in the top bar)"
+        required: false
+        default: "My vidget uploader"
+        type: string
+      force:
+        description: "Overwrite existing placeholder values"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # repository variables + Actions API (gh variable set)
+      contents: read # checkout
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure secrets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set_secret_if_missing() {
+            local name="$1"
+            local placeholder="$2"
+
+            if gh secret list --repo "$GITHUB_REPOSITORY" --json name -q '.[].name' | grep -Fxq "$name"; then
+              if [ "$FORCE" = "true" ]; then
+                echo "REPLACE_ME — ${placeholder}" | gh secret set "$name" --repo "$GITHUB_REPOSITORY"
+                echo "overwritten:  $name"
+              else
+                echo "already set:  $name  (skipped)"
+              fi
+            else
+              echo "REPLACE_ME — ${placeholder}" | gh secret set "$name" --repo "$GITHUB_REPOSITORY"
+              echo "created:      $name"
+            fi
+          }
+
+          set_secret_if_missing "VIDGET_CLIENT_ID" \
+            "Google OAuth Client ID — see docs/SETUP.md"
+
+          set_secret_if_missing "VIDGET_CLIENT_SECRET" \
+            "Google OAuth Client Secret — see docs/SETUP.md"
+
+          set_secret_if_missing "VIDGET_REFRESH_TOKEN" \
+            "Run vidget auth login locally then copy from ~/.vidget/config.json"
+
+          set_secret_if_missing "VIDGET_REPORT_TOKEN" \
+            "Fine-grained GitHub token with issues:write on jreakin/jre-vidget — see docs/SETUP.md"
+
+      - name: Configure variables
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set_variable() {
+            local name="$1"
+            local value="$2"
+            gh variable set "$name" --body "$value" --repo "$GITHUB_REPOSITORY"
+            echo "set variable: $name = $value"
+          }
+
+          set_variable "VITE_GITHUB_REPO" "$GITHUB_REPOSITORY"
+
+          TITLE="${{ inputs.app_title }}"
+          set_variable "VITE_APP_TITLE" "${TITLE:-My vidget uploader}"
+
+      - name: Check secret status
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CONFIGURED=()
+          NEEDS_ACTION=()
+
+          for name in VIDGET_CLIENT_ID VIDGET_CLIENT_SECRET VIDGET_REFRESH_TOKEN VIDGET_REPORT_TOKEN; do
+            if gh secret list --repo "$GITHUB_REPOSITORY" --json name -q '.[].name' | grep -Fxq "$name"; then
+              CONFIGURED+=("$name")
+            else
+              NEEDS_ACTION+=("$name")
+            fi
+          done
+
+          echo "configured=${CONFIGURED[*]}" >> "$GITHUB_OUTPUT"
+          echo "needs_action=${NEEDS_ACTION[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Write job summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_URL="https://github.com/$GITHUB_REPOSITORY"
+          SECRETS_URL="${REPO_URL}/settings/secrets/actions"
+          VARS_URL="${REPO_URL}/settings/variables/actions"
+          PAGES_URL="${REPO_URL}/settings/pages"
+          SETUP_URL="${REPO_URL}/blob/main/docs/SETUP.md"
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          # vidget setup checklist
+
+          Run this workflow again after filling in each secret.
+
+          ## Secrets — go to [Settings → Secrets]($SECRETS_URL)
+
+          | Secret | Status | Instructions |
+          |--------|--------|--------------|
+          | \`VIDGET_CLIENT_ID\` | ⚠️ replace placeholder | [docs/SETUP.md]($SETUP_URL) — step 2 |
+          | \`VIDGET_CLIENT_SECRET\` | ⚠️ replace placeholder | [docs/SETUP.md]($SETUP_URL) — step 2 |
+          | \`VIDGET_REFRESH_TOKEN\` | ⚠️ replace placeholder | Run \`vidget auth login\` locally — [docs/SETUP.md]($SETUP_URL) — step 3 |
+          | \`VIDGET_REPORT_TOKEN\` | ℹ️ optional | Fine-grained token to auto-report errors upstream |
+
+          ## Variables — go to [Settings → Variables]($VARS_URL)
+
+          | Variable | Value set | Notes |
+          |----------|-----------|-------|
+          | \`VITE_GITHUB_REPO\` | \`$GITHUB_REPOSITORY\` | Auto-detected ✓ |
+          | \`VITE_APP_TITLE\` | \`${{ inputs.app_title }}\` | Change to your preferred title |
+
+          ## One-time repo settings
+
+          - [ ] Enable GitHub Pages: [Settings → Pages]($PAGES_URL) → Source: **Deploy from a branch** → Branch: **gh-pages** / **/ (root)**
+          - [ ] After filling secrets, run the **Deploy web UI** workflow to publish the page
+          - [ ] Trigger a test upload from the **Download & publish** workflow to verify credentials
+
+          ## Quick links
+
+          - [Full setup guide]($SETUP_URL)
+          - [Actions tab]($REPO_URL/actions)
+          - [Your web UI](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
+
+          EOF
+
+          echo "Summary written to job summary."

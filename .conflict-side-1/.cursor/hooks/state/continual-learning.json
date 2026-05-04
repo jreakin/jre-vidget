@@ -1,0 +1,20 @@
+<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
+{
+  "version": 1,
+  "lastRunAtMs": 1777852789844,
+  "turnsSinceLastRun": 5,
+  "lastTranscriptMtimeMs": 1777852789782,
+  "lastProcessedGenerationId": "6663ebdd-0a57-49d9-9d96-1c635f867407",
+  "trialStartedAtMs": null
+}
+|||||||
+=======
+{
+  "version": 1,
+  "lastRunAtMs": 0,
+  "turnsSinceLastRun": 3,
+  "lastTranscriptMtimeMs": null,
+  "lastProcessedGenerationId": "0cbccab8-6e51-4627-a41f-feb17c751ee5",
+  "trialStartedAtMs": null
+}
+>>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
