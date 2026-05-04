@@ -65,3 +65,49 @@ export async function fetchUploads(): Promise<UploadRecord[]> {
   const data: { uploads?: UploadRecord[] } = await res.json();
   return data.uploads ?? [];
 }
+
+/** Returns the names of all secrets configured in this repo. */
+export async function listSecretNames(pat: string): Promise<string[]> {
+  const repo = requireRepo();
+  const res = await fetch(`${API}/repos/${repo}/actions/secrets?per_page=100`, {
+    headers: headers(pat),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to list secrets: ${res.status}`);
+  }
+  const data: { secrets?: { name: string }[] } = await res.json();
+  return (data.secrets ?? []).map((s) => s.name);
+}
+
+/** Fetches the repo's libsodium public key for secret encryption. */
+export async function getRepoPublicKey(pat: string): Promise<{ key: string; key_id: string }> {
+  const repo = requireRepo();
+  const res = await fetch(`${API}/repos/${repo}/actions/secrets/public-key`, {
+    headers: headers(pat),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to get public key: ${res.status}`);
+  }
+  return (await res.json()) as { key: string; key_id: string };
+}
+
+/**
+ * Creates or updates a GitHub Secret.
+ * Encrypts the value client-side before sending — the plaintext never leaves
+ * the browser except as a sealed box addressed to GitHub's servers.
+ */
+export async function setSecret(pat: string, name: string, value: string): Promise<void> {
+  const repo = requireRepo();
+  const { key, key_id } = await getRepoPublicKey(pat);
+  const { encryptSecret } = await import("../lib/sodium");
+  const encrypted_value = await encryptSecret(key, value);
+
+  const res = await fetch(`${API}/repos/${repo}/actions/secrets/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: headers(pat),
+    body: JSON.stringify({ encrypted_value, key_id }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to set secret ${name}: ${res.status}`);
+  }
+}
