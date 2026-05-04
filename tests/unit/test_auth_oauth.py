@@ -9,6 +9,20 @@ from jre_vidget.auth import _resolved_oauth_triplet, publish_oauth_configured
 from jre_vidget.models import AuthConfig
 
 
+def test_triplet_mixes_nonblank_env_per_field_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each field merges independently: env wins only where it is set and non-blank."""
+    auth = AuthConfig(
+        client_id="from-file-id",
+        client_secret=SecretStr("from-file-secret"),
+        refresh_token=SecretStr("from-file-rt"),
+    )
+    monkeypatch.setenv("VIDGET_CLIENT_ID", "only-from-env")
+    monkeypatch.delenv("VIDGET_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("VIDGET_REFRESH_TOKEN", raising=False)
+    t = _resolved_oauth_triplet(auth)
+    assert t == ("only-from-env", "from-file-secret", "from-file-rt")
+
+
 def test_triplet_prefers_nonblank_env_over_config(monkeypatch: pytest.MonkeyPatch) -> None:
     auth = AuthConfig(
         client_id="cfg-id",

@@ -79,10 +79,11 @@ def _strip_nonempty(s: str | None) -> str | None:
 
 def _env_then_cfg(env_raw: str | None, cfg: str | None) -> str | None:
     """
-    Prefer a **non-blank** environment value when the variable is set (even if empty).
+    Prefer a **non-blank** value from the environment when that variable is **defined**.
 
-    If ``env_raw`` is ``None`` (unset), use ``cfg``. If ``env_raw`` is ``""`` or only
-    whitespace, fall back to ``cfg`` so blank CI secrets do not mask on-disk tokens.
+    If ``env_raw`` is ``None`` (unset), use ``cfg``. If the variable is set but empty or
+    whitespace-only, fall back to ``cfg`` so blank env values do not override saved
+    OAuth fields from :class:`AuthConfig` (e.g. empty CI secrets with a local config).
     """
     if env_raw is not None:
         t = env_raw.strip()

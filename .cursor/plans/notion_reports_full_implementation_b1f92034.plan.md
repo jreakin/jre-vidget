@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: validate
     content: GitNexus impact per touched symbol batch; full pytest + web test script; ruff/ty; detect_changes on staged
-    status: pending
+    status: completed
 isProject: false
 ---
 
