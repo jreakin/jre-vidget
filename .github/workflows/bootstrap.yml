@@ -6,136 +6,165 @@ on:
       app_title:
         description: "Web UI title (shown in the top bar)"
         required: false
-        default: "My vidget uploader"
+        default: "My vidget"
         type: string
-      force:
-        description: "Overwrite existing placeholder values"
-        required: false
-        default: false
-        type: boolean
+
+# NOTE: GitHub Actions cannot create or update secrets — this is a hard
+# platform restriction. GITHUB_TOKEN does not have secrets:write permission
+# regardless of what is declared here.
+#
+# This workflow does what it CAN do automatically:
+#   ✅  Set repository variables (VITE_GITHUB_REPO, VITE_APP_TITLE)
+#   ✅  Check which secrets are already configured
+#   ✅  Write a job summary with exact instructions for the missing ones
+#
+# Secrets must be created by a human or via the setup script:
+#   scripts/setup-secrets.sh  (requires: gh auth login, then run locally)
 
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
     permissions:
-      actions: write # repository variables + Actions API (gh variable set)
-      contents: read # checkout
+      actions: write   # needed to set repository variables via gh CLI
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure secrets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FORCE: ${{ inputs.force }}
-        run: |
-          set_secret_if_missing() {
-            local name="$1"
-            local placeholder="$2"
-
-            if gh secret list --repo "$GITHUB_REPOSITORY" --json name -q '.[].name' | grep -Fxq "$name"; then
-              if [ "$FORCE" = "true" ]; then
-                echo "REPLACE_ME — ${placeholder}" | gh secret set "$name" --repo "$GITHUB_REPOSITORY"
-                echo "overwritten:  $name"
-              else
-                echo "already set:  $name  (skipped)"
-              fi
-            else
-              echo "REPLACE_ME — ${placeholder}" | gh secret set "$name" --repo "$GITHUB_REPOSITORY"
-              echo "created:      $name"
-            fi
-          }
-
-          set_secret_if_missing "VIDGET_CLIENT_ID" \
-            "Google OAuth Client ID — see docs/SETUP.md"
-
-          set_secret_if_missing "VIDGET_CLIENT_SECRET" \
-            "Google OAuth Client Secret — see docs/SETUP.md"
-
-          set_secret_if_missing "VIDGET_REFRESH_TOKEN" \
-            "Run vidget auth login locally then copy from ~/.vidget/config.json"
-
-          set_secret_if_missing "VIDGET_REPORT_TOKEN" \
-            "Fine-grained GitHub token with issues:write on jreakin/jre-vidget — see docs/SETUP.md"
-
-      - name: Configure variables
+      # -----------------------------------------------------------------------
+      # Variables: these CAN be set by GITHUB_TOKEN
+      # -----------------------------------------------------------------------
+      - name: Set repository variables
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set_variable() {
-            local name="$1"
-            local value="$2"
-            gh variable set "$name" --body "$value" --repo "$GITHUB_REPOSITORY"
-            echo "set variable: $name = $value"
-          }
-
-          set_variable "VITE_GITHUB_REPO" "$GITHUB_REPOSITORY"
+          gh variable set VITE_GITHUB_REPO \
+            --body "$GITHUB_REPOSITORY" \
+            --repo "$GITHUB_REPOSITORY"
+          echo "set: VITE_GITHUB_REPO = $GITHUB_REPOSITORY"
 
           TITLE="${{ inputs.app_title }}"
-          set_variable "VITE_APP_TITLE" "${TITLE:-My vidget uploader}"
+          gh variable set VITE_APP_TITLE \
+            --body "${TITLE:-My vidget}" \
+            --repo "$GITHUB_REPOSITORY"
+          echo "set: VITE_APP_TITLE = ${TITLE:-My vidget}"
 
+      # -----------------------------------------------------------------------
+      # Secrets: check what's already present (we can read names, not values)
+      # -----------------------------------------------------------------------
       - name: Check secret status
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CONFIGURED=()
-          NEEDS_ACTION=()
+          SECRETS=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name -q '.[].name' 2>/dev/null || echo "")
 
-          for name in VIDGET_CLIENT_ID VIDGET_CLIENT_SECRET VIDGET_REFRESH_TOKEN VIDGET_REPORT_TOKEN; do
-            if gh secret list --repo "$GITHUB_REPOSITORY" --json name -q '.[].name' | grep -Fxq "$name"; then
-              CONFIGURED+=("$name")
-            else
-              NEEDS_ACTION+=("$name")
-            fi
-          done
+          check() {
+            echo "$SECRETS" | grep -Fxq "$1" && echo "✅" || echo "❌"
+          }
 
-          echo "configured=${CONFIGURED[*]}" >> "$GITHUB_OUTPUT"
-          echo "needs_action=${NEEDS_ACTION[*]}" >> "$GITHUB_OUTPUT"
+          CLIENT_ID=$(check "VIDGET_CLIENT_ID")
+          CLIENT_SECRET=$(check "VIDGET_CLIENT_SECRET")
+          REFRESH_TOKEN=$(check "VIDGET_REFRESH_TOKEN")
+          REPORT_TOKEN=$(check "VIDGET_REPORT_TOKEN")
 
-      - name: Write job summary
+          echo "client_id=$CLIENT_ID"           >> "$GITHUB_OUTPUT"
+          echo "client_secret=$CLIENT_SECRET"   >> "$GITHUB_OUTPUT"
+          echo "refresh_token=$REFRESH_TOKEN"   >> "$GITHUB_OUTPUT"
+          echo "report_token=$REPORT_TOKEN"     >> "$GITHUB_OUTPUT"
+
+          # Fail the workflow if any required secrets are missing
+          if [[ "$CLIENT_ID" == "❌" || "$CLIENT_SECRET" == "❌" || "$REFRESH_TOKEN" == "❌" ]]; then
+            echo "missing_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -----------------------------------------------------------------------
+      # Job summary: instructions for whatever is still missing
+      # -----------------------------------------------------------------------
+      - name: Write setup summary
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLIENT_ID:      ${{ steps.check.outputs.client_id }}
+          CLIENT_SECRET:  ${{ steps.check.outputs.client_secret }}
+          REFRESH_TOKEN:  ${{ steps.check.outputs.refresh_token }}
+          REPORT_TOKEN:   ${{ steps.check.outputs.report_token }}
+          MISSING:        ${{ steps.check.outputs.missing_secrets }}
         run: |
           REPO_URL="https://github.com/$GITHUB_REPOSITORY"
           SECRETS_URL="${REPO_URL}/settings/secrets/actions"
           VARS_URL="${REPO_URL}/settings/variables/actions"
           PAGES_URL="${REPO_URL}/settings/pages"
           SETUP_URL="${REPO_URL}/blob/main/docs/SETUP.md"
+          WEB_UI_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
 
-          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          cat >> "$GITHUB_STEP_SUMMARY" << SUMMARY
           # vidget setup checklist
 
-          Run this workflow again after filling in each secret.
+          ## Variables ✅
+          These were set automatically:
+          | Variable | Value |
+          |----------|-------|
+          | \`VITE_GITHUB_REPO\` | \`$GITHUB_REPOSITORY\` |
+          | \`VITE_APP_TITLE\` | \`${{ inputs.app_title }}\` |
 
-          ## Secrets — go to [Settings → Secrets]($SECRETS_URL)
+          [View variables →]($VARS_URL)
 
-          | Secret | Status | Instructions |
-          |--------|--------|--------------|
-          | \`VIDGET_CLIENT_ID\` | ⚠️ replace placeholder | [docs/SETUP.md]($SETUP_URL) — step 2 |
-          | \`VIDGET_CLIENT_SECRET\` | ⚠️ replace placeholder | [docs/SETUP.md]($SETUP_URL) — step 2 |
-          | \`VIDGET_REFRESH_TOKEN\` | ⚠️ replace placeholder | Run \`vidget auth login\` locally — [docs/SETUP.md]($SETUP_URL) — step 3 |
-          | \`VIDGET_REPORT_TOKEN\` | ℹ️ optional | Fine-grained token to auto-report errors upstream |
+          ## Secrets
+          > ⚠️ GitHub Actions cannot create secrets on your behalf.
+          > You must add these yourself — see the options below.
 
-          ## Variables — go to [Settings → Variables]($VARS_URL)
+          | Secret | Status | Purpose |
+          |--------|--------|---------|
+          | \`VIDGET_CLIENT_ID\` | $CLIENT_ID | Google OAuth app identity |
+          | \`VIDGET_CLIENT_SECRET\` | $CLIENT_SECRET | Google OAuth app credential |
+          | \`VIDGET_REFRESH_TOKEN\` | $REFRESH_TOKEN | Your YouTube channel access |
+          | \`VIDGET_REPORT_TOKEN\` | $REPORT_TOKEN | *(optional)* Auto-report errors upstream |
 
-          | Variable | Value set | Notes |
-          |----------|-----------|-------|
-          | \`VITE_GITHUB_REPO\` | \`$GITHUB_REPOSITORY\` | Auto-detected ✓ |
-          | \`VITE_APP_TITLE\` | \`${{ inputs.app_title }}\` | Change to your preferred title |
+          SUMMARY
+
+          if [ "$MISSING" = "true" ]; then
+            cat >> "$GITHUB_STEP_SUMMARY" << SUMMARY
+
+          ### Option A — set secrets from your terminal (fastest)
+
+          \`\`\`bash
+          # Requires: gh auth login (GitHub CLI, already authenticated)
+          bash scripts/setup-secrets.sh
+          \`\`\`
+
+          ### Option B — set secrets manually in the browser
+
+          Go to [Settings → Secrets → Actions]($SECRETS_URL) and add each missing secret.
+          See [docs/SETUP.md]($SETUP_URL) for instructions on obtaining each value.
+
+          SUMMARY
+          else
+            cat >> "$GITHUB_STEP_SUMMARY" << SUMMARY
+
+          All required secrets are configured ✅
+
+          SUMMARY
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" << SUMMARY
 
           ## One-time repo settings
 
           - [ ] Enable GitHub Pages: [Settings → Pages]($PAGES_URL) → Source: **Deploy from a branch** → Branch: **gh-pages** / **/ (root)**
-          - [ ] After filling secrets, run the **Deploy web UI** workflow to publish the page
-          - [ ] Trigger a test upload from the **Download & publish** workflow to verify credentials
+          - [ ] After secrets are set, run **Deploy web UI** to publish your page
+          - [ ] Test with a real URL using **Download & publish to YouTube**
 
-          ## Quick links
-
+          ## Links
           - [Full setup guide]($SETUP_URL)
           - [Actions tab]($REPO_URL/actions)
-          - [Your web UI](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
+          - [Your web UI (once Pages is enabled)]($WEB_UI_URL)
 
-          EOF
+          SUMMARY
 
-          echo "Summary written to job summary."
+      - name: Fail if required secrets are missing
+        if: steps.check.outputs.missing_secrets == 'true'
+        run: |
+          echo "::error::One or more required secrets are not set."
+          echo "::error::See the job summary above for setup instructions."
+          exit 1
