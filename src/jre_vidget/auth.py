@@ -26,7 +26,6 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 _GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
-# Port for OAuth redirect callback (InstalledAppFlow.run_local_server).
 OAUTH_LOCAL_SERVER_PORT = 8080
 
 

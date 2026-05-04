@@ -14,14 +14,7 @@ import typer
 
 
 def verify_dependencies() -> None:
-    """
-    Verify that yt-dlp and ffmpeg are available.
-
-    Prints a helpful install hint and exits with code 1 if yt-dlp is missing.
-    Warns (stderr) if ffmpeg is missing; download without conversion may still work.
-
-    Split out for unit tests; ``check_dependencies`` delegates here.
-    """
+    """Verify yt-dlp is importable; warn on stderr if ffmpeg is missing. Exit 1 if yt-dlp absent."""
     if importlib.util.find_spec("yt_dlp") is None:
         sys.stderr.write(
             "❌  yt-dlp not found. Install with: pip install yt-dlp\n",
@@ -36,9 +29,5 @@ def verify_dependencies() -> None:
 
 
 def check_dependencies() -> None:
-    """
-    Verify that yt-dlp and ffmpeg are available before any command runs.
-
-    Delegates to :func:`verify_dependencies`.
-    """
+    """CLI pre-flight; same checks as :func:`verify_dependencies`."""
     verify_dependencies()

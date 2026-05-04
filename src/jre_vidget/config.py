@@ -3,9 +3,6 @@ User config persistence — ``~/.vidget/config.json`` via Pydantic v2.
 
 ``AppConfig`` is defined in ``models``; this module performs disk I/O. ``models`` does not import
 this package at module load time (``AppConfig.load`` / ``save`` use a lazy import to call here).
-
-Refactor note (RF-DEAD-01): this file is the canonical persistence layer, not an unused stub;
-do not remove or fold into ``models`` without updating ``AppConfig.load`` / ``save``.
 """
 
 from __future__ import annotations

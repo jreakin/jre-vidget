@@ -37,7 +37,6 @@ from jre_vidget.models import (
 
 log = logging.getLogger(__name__)
 
-# Bound network waits for yt-dlp extract/download (seconds).
 YDL_SOCKET_TIMEOUT_SECONDS = 30
 
 
@@ -51,10 +50,7 @@ def _base_ydl_opts() -> dict[str, Any]:
     }
 
 
-# yt-dlp retry back-off between attempts (seconds).
 RETRY_BACKOFF_SECONDS = 2.0
-# Only consider output files modified within this window when the finished hook
-# did not report a path (seconds).
 FILE_DISCOVERY_WINDOW_SECONDS = 60.0
 
 
@@ -68,7 +64,7 @@ class ProgressData(TypedDict, total=False):
     speed: float | None
     eta: int | None
     filename: str
-    error: str  # present when ``status`` is ``"error"``
+    error: str
 
 
 ProgressHook = Callable[[ProgressData], None]

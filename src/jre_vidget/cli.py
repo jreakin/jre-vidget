@@ -6,8 +6,7 @@ from importlib.metadata import version as pkg_version
 
 import typer
 
-# Re-export service modules so ``patch("jre_vidget.cli.engine.download", ...)`` matches the
-# same objects command code uses via ``cli_common`` (single interpreter, shared modules).
+# Re-export: ``jre_vidget.cli.engine`` matches what commands use via ``cli_common`` (tests patch here).
 from jre_vidget import auth, checks, engine, publisher, ui
 from jre_vidget.cli_common import (
     PublishOptions,
