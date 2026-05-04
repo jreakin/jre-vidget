@@ -1,4 +1,3 @@
-<<<<<<< New base: Project: add CLI stub, docs, Makefile, and packaging changes
 {
   "version": 1,
   "lastRunAtMs": 1777864715691,
@@ -7,14 +6,3 @@
   "lastProcessedGenerationId": "12f90ce3-ca36-4fcc-a287-372f30dbb049",
   "trialStartedAtMs": null
 }
-|||||||
-=======
-{
-  "version": 1,
-  "lastRunAtMs": 1777852789844,
-  "turnsSinceLastRun": 0,
-  "lastTranscriptMtimeMs": 1777852789782,
-  "lastProcessedGenerationId": "cb66854b-3e12-4601-a1dd-02b9a26f0304",
-  "trialStartedAtMs": null
-}
->>>>>>> Current commit: Project: add CLI stub, docs, Makefile, and packaging changes
