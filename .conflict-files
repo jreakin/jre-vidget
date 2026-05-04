@@ -1,0 +1,3 @@
+ancestorEntries = [".cursor/hooks/state/continual-learning.json", "src/jre_vidget/cli.py"]
+ourEntries = [".cursor/hooks/state/continual-learning.json", "src/jre_vidget/cli.py"]
+theirEntries = [".cursor/hooks/state/continual-learning.json", "src/jre_vidget/cli.py"]

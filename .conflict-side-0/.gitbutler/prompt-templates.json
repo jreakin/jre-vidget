@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "feature",
+      "name": "Feature",
+      "description": "New feature or enhancement",
+      "template": "feat: {title}\n\n## What\n\n{description}\n\n## Why\n\n{motivation}\n\n## How\n\n- {implementation_notes}\n\n## Tests\n\n- [ ] `uv run pytest tests/unit -x` — unit tests pass\n- [ ] `uv run pytest` — full suite passes\n- [ ] `uv run mypy src/ --strict` — clean\n- [ ] `uv run ruff check src/` — clean\n\n## Notes\n\n{notes}"
+    },
+    {
+      "id": "bug",
+      "name": "Bug Fix",
+      "description": "Fix a defect or unexpected behaviour",
+      "template": "fix: {title}\n\n## Problem\n\n{problem_description}\n\n## Root Cause\n\n{root_cause}\n\n## Fix\n\n{fix_description}\n\n## Verification\n\n- [ ] Failing test added that reproduces the bug\n- [ ] `uv run pytest tests/unit -x` — new test passes\n- [ ] `uv run pytest` — no regressions\n- [ ] `uv run mypy src/ --strict` — clean\n\n## Related\n\n{related_issues}"
+    },
+    {
+      "id": "phase",
+      "name": "Phase Implementation",
+      "description": "Implement a phase from prompts/",
+      "template": "feat: implement phase {phase_number} — {phase_name}\n\n## Phase\n\n`prompts/phase-{phase_number}-{phase_slug}/current.md`\n\n## Deliverables\n\n{deliverables}\n\n## Acceptance Criteria\n\n{acceptance_criteria}\n\n## Checklist\n\n- [ ] All acceptance criteria met\n- [ ] `uv run pytest` — all tests pass\n- [ ] `uv run mypy src/ --strict` — clean\n- [ ] `uv run ruff check src/` — clean\n- [ ] AGENTS.md updated if new modules added"
+    },
+    {
+      "id": "chore",
+      "name": "Chore / Maintenance",
+      "description": "Deps, CI, docs, config — no production logic change",
+      "template": "chore: {title}\n\n## What changed\n\n{description}\n\n## Why\n\n{motivation}\n\n## Checklist\n\n- [ ] `uv run pytest` — no regressions\n- [ ] No new behaviour introduced"
+    }
+  ]
+}
