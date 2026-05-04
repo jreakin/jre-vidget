@@ -68,6 +68,7 @@ class ProgressData(TypedDict, total=False):
     speed: float | None
     eta: int | None
     filename: str
+    error: str  # present when ``status`` is ``"error"``
 
 
 ProgressHook = Callable[[ProgressData], None]
@@ -232,7 +233,8 @@ def _raw_to_video_info(raw: dict[str, Any], fallback_url: str) -> VideoInfo:
     _wu = _optional_str_field(raw, "webpage_url")
     webpage_url = fallback_url if _wu is None else _wu
     vid = raw.get("id")
-    title = _str_field(raw, "title")
+    title_raw = raw.get("title")
+    title = str(title_raw) if title_raw is not None else ""
     formats_raw = raw.get("formats")
     formats_list: list[VideoFormat] = []
     if isinstance(formats_raw, list):
@@ -331,11 +333,14 @@ def preview(url: str) -> VideoPreview:
     except _ExtractionError as e:
         raise DownloadError(str(e)) from e
 
-    description = _str_field(raw_info, "description")
+    desc_raw = raw_info.get("description")
+    description = str(desc_raw) if desc_raw is not None else ""
     duration = raw_info.get("duration")
     duration_seconds = int(duration) if isinstance(duration, (int, float)) else 0
-    title = _str_field(raw_info, "title")
-    uploader = _str_field(raw_info, "uploader")
+    title_raw = raw_info.get("title")
+    title = str(title_raw) if title_raw is not None else ""
+    upl_raw = raw_info.get("uploader")
+    uploader = str(upl_raw) if upl_raw is not None else ""
 
     vc = raw_info.get("view_count")
     view_count: int | None = int(vc) if isinstance(vc, (int, float)) else None
@@ -388,6 +393,18 @@ def _emit_retry_log(url: str, attempt_1_based: int, max_retries: int) -> None:
     sys.stderr.flush()
 
 
+def _attempt_download_once(url: str, opts: dict[str, Any]) -> None:
+    """
+    Run a single yt-dlp download pass.
+
+    Typically raises :class:`YtdlpDownloadError` for recoverable yt-dlp failures
+    (the ``download`` retry loop handles those). Any other exception propagates to
+    the caller, which maps unknown failures to :class:`EngineError`.
+    """
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download([url])
+
+
 def download(
     config: DownloadConfig,
     progress_hook: ProgressHook | None = None,
@@ -425,8 +442,7 @@ def download(
     attempt = 0
     while True:
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([config.url])
+            _attempt_download_once(config.url, opts)
         except YtdlpDownloadError as e:
             if attempt < max_retries:
                 _emit_retry_log(config.url, attempt + 1, max_retries)

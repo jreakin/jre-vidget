@@ -254,3 +254,160 @@ def test_history_append_cli(tmp_path: Path) -> None:
     data = json.loads(hist.read_text(encoding="utf-8"))
     assert data["schemaVersion"] == history_mod.UPLOADS_SCHEMA_VERSION
     assert data["uploads"][0]["video_id"] == "abc123"
+
+
+def test_history_append_invalid_privacy_exit_2(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text('{"uploads": []}', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "history",
+            "append",
+            "--file",
+            str(hist),
+            "--video-id",
+            "abc",
+            "--source-url",
+            "https://youtu.be/x",
+            "--privacy",
+            "super-secret",
+            "--run-id",
+            "1",
+        ],
+    )
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "privacy must be public, unlisted, or private" in combined
+
+
+def test_download_invalid_privacy_exit_2(tmp_path: Path) -> None:
+    with patch("jre_vidget.cli.checks.check_dependencies"):
+        result = runner.invoke(
+            app,
+            [
+                "download",
+                "https://x.com",
+                "--output",
+                str(tmp_path),
+                "--privacy",
+                "invalid",
+            ],
+        )
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "privacy must be public, unlisted, or private" in combined
+
+
+def test_publish_invalid_privacy_exit_2(tmp_path: Path) -> None:
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    with patch("jre_vidget.cli.checks.check_dependencies"):
+        result = runner.invoke(
+            app,
+            ["publish", str(video), "--privacy", "not-a-privacy"],
+        )
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "privacy must be public, unlisted, or private" in combined
+
+
+def test_history_append_corrupt_json_exits_1(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text("{not valid json", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "history",
+            "append",
+            "--file",
+            str(hist),
+            "--video-id",
+            "x",
+            "--source-url",
+            "https://u",
+            "--privacy",
+            "public",
+            "--run-id",
+            "1",
+        ],
+    )
+    assert result.exit_code == 1
+
+
+def test_history_append_env_only(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text('{"uploads": []}', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        ["history", "append", "--file", str(hist)],
+        env={
+            "VIDEO_ID": "envvid",
+            "INPUT_TITLE": "",
+            "INPUT_URL": "https://source",
+            "INPUT_PRIVACY": "unlisted",
+            "RUN_ID": "4242",
+        },
+    )
+    assert result.exit_code == 0
+    data = json.loads(hist.read_text(encoding="utf-8"))
+    assert data["uploads"][0]["video_id"] == "envvid"
+    assert data["uploads"][0]["privacy"] == "unlisted"
+    assert data["uploads"][0]["title"] == "untitled"
+
+
+def test_history_append_json_stdout(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text('{"uploads": []}', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "history",
+            "append",
+            "--file",
+            str(hist),
+            "--video-id",
+            "j1",
+            "--title",
+            "JT",
+            "--source-url",
+            "https://j",
+            "--privacy",
+            "private",
+            "--run-id",
+            "7",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert payload["record"]["video_id"] == "j1"
+    assert payload["record"]["privacy"] == "private"
+
+
+def test_history_append_json_error_stdout(tmp_path: Path) -> None:
+    hist = tmp_path / "uploads.json"
+    hist.write_text(json.dumps({"uploads": {}}), encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "history",
+            "append",
+            "--file",
+            str(hist),
+            "--json",
+            "--video-id",
+            "x",
+            "--source-url",
+            "https://u",
+            "--privacy",
+            "public",
+            "--run-id",
+            "1",
+        ],
+    )
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert "uploads" in payload["error"].lower()

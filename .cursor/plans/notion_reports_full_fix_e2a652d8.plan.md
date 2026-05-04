@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: rf-complexity-cleanup
     content: RF-COMPLEX-03 download retry extract; RF-COMPLEX-02 ProgressTracker; RF-COMPLEX-01+SMELL-05 PublishOptions + decompose _publish_after_download; RF-DEAD-01 test -> None
-    status: pending
+    status: completed
   - id: p3-optional
     content: Raise cov-fail-under toward 80 if pytest --cov supports; RF-DEAD-02 TypeVar cleanup if desired
     status: pending

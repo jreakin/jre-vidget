@@ -18,7 +18,7 @@ from jre_vidget.models import AppConfig, AuthConfig
 
 
 class TestLoginBrowser:
-    def test_returns_auth_config_with_refresh_token(self):
+    def test_returns_auth_config_with_refresh_token(self) -> None:
         mock_creds = MagicMock()
         mock_creds.refresh_token = "rt_abc123"
         mock_creds.token = "access_token"
@@ -36,7 +36,7 @@ class TestLoginBrowser:
         assert result.refresh_token is not None
         assert result.refresh_token.get_secret_value() == "rt_abc123"
 
-    def test_flow_called_with_correct_scope(self):
+    def test_flow_called_with_correct_scope(self) -> None:
         mock_creds = MagicMock()
         mock_creds.refresh_token = "rt"
 
@@ -51,7 +51,7 @@ class TestLoginBrowser:
         scopes = call_kwargs[0][1]  # second positional arg is scopes list
         assert "https://www.googleapis.com/auth/youtube.upload" in scopes
 
-    def test_run_local_server_on_port_8080(self):
+    def test_run_local_server_on_port_8080(self) -> None:
         mock_creds = MagicMock()
         mock_creds.refresh_token = "rt"
 
@@ -66,7 +66,7 @@ class TestLoginBrowser:
 
 
 class TestGetCredentials:
-    def test_returns_credentials_when_configured(self):
+    def test_returns_credentials_when_configured(self) -> None:
         auth = AuthConfig(
             client_id="cid",
             client_secret=SecretStr("csecret"),
@@ -81,17 +81,17 @@ class TestGetCredentials:
 
         assert creds is mock_creds
 
-    def test_raises_auth_error_when_no_refresh_token(self):
+    def test_raises_auth_error_when_no_refresh_token(self) -> None:
         auth = AuthConfig(client_id="cid", client_secret=SecretStr("csecret"))
         with pytest.raises(AuthError, match="Run 'vidget auth login'"):
             get_credentials(auth)
 
-    def test_raises_auth_error_when_no_credentials_at_all(self):
+    def test_raises_auth_error_when_no_credentials_at_all(self) -> None:
         auth = AuthConfig()
         with pytest.raises(AuthError, match="Run 'vidget auth login'"):
             get_credentials(auth)
 
-    def test_refreshes_expired_token(self):
+    def test_refreshes_expired_token(self) -> None:
         auth = AuthConfig(
             client_id="cid",
             client_secret=SecretStr("csecret"),
@@ -111,7 +111,7 @@ class TestGetCredentials:
 
         mock_creds.refresh.assert_called_once()
 
-    def test_raises_auth_error_on_refresh_failure(self):
+    def test_raises_auth_error_on_refresh_failure(self) -> None:
         from google.auth.exceptions import RefreshError
 
         auth = AuthConfig(
@@ -132,7 +132,7 @@ class TestGetCredentials:
             with pytest.raises(AuthError, match="session expired"):
                 get_credentials(auth)
 
-    def test_env_vars_override_config(self, monkeypatch):
+    def test_env_vars_override_config(self, monkeypatch) -> None:
         """VIDGET_CLIENT_ID / VIDGET_CLIENT_SECRET take precedence over AuthConfig."""
         monkeypatch.setenv("VIDGET_CLIENT_ID", "env-client-id")
         monkeypatch.setenv("VIDGET_CLIENT_SECRET", "env-client-secret")
@@ -154,7 +154,7 @@ class TestGetCredentials:
         assert kwargs["client_id"] == "env-client-id"
         assert kwargs["client_secret"] == "env-client-secret"
 
-    def test_env_var_refresh_token_overrides_config(self, monkeypatch):
+    def test_env_var_refresh_token_overrides_config(self, monkeypatch) -> None:
         """VIDGET_REFRESH_TOKEN env var takes precedence over AuthConfig.refresh_token."""
         monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-refresh-token")
         auth = AuthConfig(
@@ -172,7 +172,7 @@ class TestGetCredentials:
         _, kwargs = mock_creds_cls.call_args
         assert kwargs["refresh_token"] == "env-refresh-token"
 
-    def test_env_var_refresh_token_allows_empty_config(self, monkeypatch):
+    def test_env_var_refresh_token_allows_empty_config(self, monkeypatch) -> None:
         """All three env vars set → AuthConfig can be completely empty."""
         monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "env-rt")
         monkeypatch.setenv("VIDGET_CLIENT_ID", "env-cid")
@@ -192,7 +192,7 @@ class TestGetCredentials:
 
 
 class TestLogout:
-    def test_clears_all_auth_fields(self, tmp_path, monkeypatch):
+    def test_clears_all_auth_fields(self, tmp_path, monkeypatch) -> None:
         import jre_vidget.config as vidget_cfg
 
         monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
@@ -210,7 +210,7 @@ class TestLogout:
         assert result.auth.client_secret is None
         assert result.auth.refresh_token is None
 
-    def test_saves_to_disk(self, tmp_path, monkeypatch):
+    def test_saves_to_disk(self, tmp_path, monkeypatch) -> None:
         import jre_vidget.config as vidget_cfg
 
         monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")

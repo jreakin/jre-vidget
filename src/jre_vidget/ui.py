@@ -188,6 +188,73 @@ def _progress_task_by_id(progress: Progress, task_id: TaskID) -> Task | None:
     return None
 
 
+class ProgressTracker:
+    """Drive a Rich :class:`~rich.progress.Progress` from yt-dlp ``progress_hooks``."""
+
+    __slots__ = ("_progress", "_task_id")
+
+    def __init__(self, progress: Progress) -> None:
+        self._progress = progress
+        self._task_id: TaskID | None = None
+
+    def __call__(self, d: ProgressData) -> None:
+        status = d.get("status")
+        if status == YtdlpStatus.ERROR.value:
+            self._on_error(d)
+        elif status == YtdlpStatus.FINISHED.value:
+            self._on_finished(d)
+        elif status == YtdlpStatus.DOWNLOADING.value:
+            self._on_downloading(d)
+
+    def _on_error(self, d: ProgressData) -> None:
+        err = str(d.get("error") or "Unknown error")
+        print_error("Download error", err)
+
+    def _on_finished(self, d: ProgressData) -> None:
+        tid = self._task_id
+        if tid is not None:
+            task = _progress_task_by_id(self._progress, tid)
+            if task is not None:
+                total = task.total
+                if total is not None and total > 0:
+                    self._progress.update(tid, completed=total)
+                self._progress.remove_task(tid)
+            self._task_id = None
+        if d.get("filename"):
+            console.print("[green]✅ Merging…[/green]")
+
+    def _on_downloading(self, d: ProgressData) -> None:
+        desc = "Downloading"
+        fn = d.get("filename")
+        if isinstance(fn, str) and fn:
+            desc = Path(fn).name
+
+        total = d.get("total_bytes")
+        if total is None:
+            total = d.get("total_bytes_estimate")
+
+        downloaded = int(d.get("downloaded_bytes") or 0)
+        total_i: float | None = float(total) if isinstance(total, (int, float)) else None
+
+        tid = self._task_id
+        if tid is None:
+            self._task_id = self._progress.add_task(desc, total=total_i)
+            tid = self._task_id
+        if tid is None:
+            return
+        row = _progress_task_by_id(self._progress, tid)
+        if row is None:
+            return
+        if row.description != desc:
+            self._progress.update(tid, description=desc)
+        if total_i is not None and row.total != total_i:
+            self._progress.update(tid, total=total_i)
+        self._progress.update(
+            tid,
+            completed=min(downloaded, int(total_i) if total_i else downloaded),
+        )
+
+
 def print_formats_table(info: VideoInfo) -> None:
     """Display available video and audio-only formats."""
     video_rows = info.best_formats
@@ -209,8 +276,6 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
     progress_context is a Rich Progress instance the caller should use
     as a context manager.
     """
-    task_ref: list[TaskID | None] = [None]
-
     progress = Progress(
         TextColumn("[bold blue]{task.description}"),
         BarColumn(),
@@ -219,55 +284,10 @@ def make_progress_hook() -> tuple[ProgressHook, Progress]:
         TimeRemainingColumn(),
         console=console,
     )
+    tracker = ProgressTracker(progress)
 
     def hook(d: ProgressData) -> None:
-        status = d.get("status")
-        if status == YtdlpStatus.ERROR.value:
-            err = str(d.get("error") or "Unknown error")
-            print_error("Download error", err)
-            return
-
-        if status == YtdlpStatus.FINISHED.value:
-            tid = task_ref[0]
-            if tid is not None:
-                task = _progress_task_by_id(progress, tid)
-                if task is not None:
-                    total = task.total
-                    if total is not None and total > 0:
-                        progress.update(tid, completed=total)
-                    progress.remove_task(tid)
-                task_ref[0] = None
-            if d.get("filename"):
-                console.print("[green]✅ Merging…[/green]")
-            return
-
-        if status == YtdlpStatus.DOWNLOADING.value:
-            desc = "Downloading"
-            fn = d.get("filename")
-            if isinstance(fn, str) and fn:
-                desc = Path(fn).name
-
-            total = d.get("total_bytes")
-            if total is None:
-                total = d.get("total_bytes_estimate")
-
-            downloaded = int(d.get("downloaded_bytes") or 0)
-            total_i: float | None = float(total) if isinstance(total, (int, float)) else None
-
-            tid = task_ref[0]
-            if tid is None:
-                task_ref[0] = progress.add_task(desc, total=total_i)
-                tid = task_ref[0]
-            if tid is None:
-                return
-            row = _progress_task_by_id(progress, tid)
-            if row is None:
-                return
-            if row.description != desc:
-                progress.update(tid, description=desc)
-            if total_i is not None and row.total != total_i:
-                progress.update(tid, total=total_i)
-            progress.update(tid, completed=min(downloaded, int(total_i) if total_i else downloaded))
+        tracker(d)
 
     return hook, progress
 

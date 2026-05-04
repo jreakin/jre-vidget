@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import TypeVar
@@ -58,6 +59,14 @@ def _ensure_cli_logging() -> None:
 def _is_headless() -> bool:
     """True when stdin is not a TTY (pipelines, CI, Typer CliRunner)."""
     return not sys.stdin.isatty()
+
+
+def _parse_privacy(value: str) -> PrivacyStatus:
+    """Validate CLI / workflow privacy string → :class:`PrivacyStatus` with a stable error message."""
+    try:
+        return PrivacyStatus(value)
+    except ValueError:
+        raise typer.BadParameter("privacy must be public, unlisted, or private") from None
 
 
 app = typer.Typer(
@@ -195,14 +204,57 @@ def _validate_output(path: Path) -> Path:
     return path
 
 
+@dataclass(frozen=True)
+class PublishOptions:
+    """YouTube publish fields collected from the download command."""
+
+    title: str | None
+    description: str
+    privacy: PrivacyStatus
+    remove_after_upload: bool
+
+
+def _resolve_publish_title_for_download(
+    options: PublishOptions,
+    *,
+    video_info: VideoInfo | None,
+    fallback_url: str,
+) -> str:
+    """Pick title: explicit CLI title, else scraped title, else the source URL."""
+    if options.title:
+        return options.title
+    if video_info is not None:
+        return video_info.title
+    return fallback_url
+
+
+def _publish_config_for_downloaded_file(
+    filepath: Path,
+    options: PublishOptions,
+    *,
+    video_info: VideoInfo | None,
+    url: str,
+) -> PublishConfig:
+    """Build :class:`PublishConfig` after a successful download."""
+    title = _resolve_publish_title_for_download(
+        options,
+        video_info=video_info,
+        fallback_url=url,
+    )
+    return PublishConfig(
+        filepath=filepath,
+        title=title,
+        description=options.description,
+        privacy=options.privacy,
+        remove_after_upload=options.remove_after_upload,
+    )
+
+
 def _publish_after_download(
     cfg: AppConfig,
     result: DownloadResult,
     *,
-    pub_title: str | None,
-    pub_description: str,
-    pub_privacy: PrivacyStatus,
-    pub_remove: bool,
+    options: PublishOptions,
     video_info: VideoInfo | None,
     url: str,
     json_output: bool = False,
@@ -216,13 +268,11 @@ def _publish_after_download(
         else:
             ui.print_error("Cannot publish", msg)
         raise typer.Exit(code=1)
-    resolved_title = pub_title or (video_info.title if video_info else url)
-    publish_config = PublishConfig(
-        filepath=fp,
-        title=resolved_title,
-        description=pub_description,
-        privacy=pub_privacy,
-        remove_after_upload=pub_remove,
+    publish_config = _publish_config_for_downloaded_file(
+        fp,
+        options,
+        video_info=video_info,
+        url=url,
     )
     try:
         with console.status("Uploading to YouTube…"):
@@ -276,8 +326,8 @@ def download(
         "--description",
         help="YouTube description.",
     ),
-    pub_privacy: PrivacyStatus = typer.Option(
-        PrivacyStatus.PUBLIC,
+    pub_privacy: str = typer.Option(
+        PrivacyStatus.PUBLIC.value,
         "--privacy",
         help="public | unlisted | private",
     ),
@@ -293,6 +343,7 @@ def download(
     ),
 ) -> None:
     """Download a single video."""
+    pub_privacy_status = _parse_privacy(pub_privacy)
     cfg = AppConfig.load()
     dl_cfg = _resolve_download_config(cfg, quality, out_format, output, subs, url)
 
@@ -337,10 +388,12 @@ def download(
         pub_result = _publish_after_download(
             cfg,
             result,
-            pub_title=pub_title,
-            pub_description=pub_description,
-            pub_privacy=pub_privacy,
-            pub_remove=pub_remove,
+            options=PublishOptions(
+                title=pub_title,
+                description=pub_description,
+                privacy=pub_privacy_status,
+                remove_after_upload=pub_remove,
+            ),
             video_info=video_info,
             url=url,
             json_output=json_output,
@@ -596,7 +649,7 @@ def history_append(
         ...,
         "--privacy",
         envvar="INPUT_PRIVACY",
-        help="Privacy at upload time (public | unlisted | private).",
+        help="public | unlisted | private (validated before append).",
     ),
     run_id: str = typer.Option(
         ...,
@@ -610,20 +663,42 @@ def history_append(
         "-f",
         help="Path to uploads.json (repo root in CI).",
     ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print a single JSON object on stdout (ok + record, or ok false + error).",
+    ),
 ) -> None:
     """Prepend one upload record and ensure ``schemaVersion`` is set."""
+    privacy_status = _parse_privacy(privacy)
     try:
-        history.append_upload_record(
+        record = history.append_upload_record(
             file,
             video_id=video_id,
             title=title,
             source_url=source_url,
-            privacy=privacy,
+            privacy=privacy_status.value,
             run_id=run_id,
         )
-    except (OSError, ValueError) as e:
-        ui.print_error("Could not update upload history", str(e))
+    except typer.Exit:
+        raise
+    except Exception as e:
+        if json_output:
+            typer.echo(
+                json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False),
+            )
+        else:
+            ui.print_error("Could not update upload history", str(e))
         raise typer.Exit(code=1) from e
+    else:
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {"ok": True, "record": record},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
 
 
 @app.command()
@@ -644,8 +719,8 @@ def publish(
         "-d",
         help="Video description (local upload default empty).",
     ),
-    privacy: PrivacyStatus = typer.Option(
-        PrivacyStatus.PUBLIC,
+    privacy: str = typer.Option(
+        PrivacyStatus.PUBLIC.value,
         "--privacy",
         help="public | unlisted | private",
     ),
@@ -662,6 +737,7 @@ def publish(
     ),
 ) -> None:
     """Upload a local file to YouTube, or preview then dispatch Actions publish for a URL."""
+    privacy_status = _parse_privacy(privacy)
     cfg = AppConfig.load()
 
     if _is_remote_publish_target(target):
@@ -694,7 +770,7 @@ def publish(
                 url=target,
                 title=meta.title,
                 description=meta.description,
-                privacy=privacy,
+                privacy=privacy_status,
                 remove_after_upload=remove,
             )
         except RuntimeError as e:
@@ -718,7 +794,7 @@ def publish(
         filepath=filepath,
         title=resolved_title,
         description=desc,
-        privacy=privacy,
+        privacy=privacy_status,
         remove_after_upload=remove,
     )
 

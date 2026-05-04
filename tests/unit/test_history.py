@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -71,3 +72,66 @@ def test_load_uploads_rejects_non_object(tmp_path: Path) -> None:
     path.write_text("[1,2]", encoding="utf-8")
     with pytest.raises(ValueError, match="JSON object"):
         history.load_uploads(path)
+
+
+def test_load_uploads_uploads_null_becomes_empty_list(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.json"
+    path.write_text(json.dumps({"uploads": None, "schemaVersion": 1}), encoding="utf-8")
+    data = history.load_uploads(path)
+    assert data["uploads"] == []
+
+
+def test_load_uploads_rejects_uploads_not_array(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.json"
+    path.write_text(json.dumps({"uploads": {}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON array"):
+        history.load_uploads(path)
+
+
+def test_append_rejects_blank_video_id(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.json"
+    with pytest.raises(ValueError, match="video_id"):
+        history.append_upload_record(
+            path,
+            video_id="   ",
+            title="t",
+            source_url="https://u",
+            privacy="public",
+            run_id="1",
+        )
+
+
+@pytest.mark.skipif(history.fcntl is None, reason="whole-file locking uses fcntl (POSIX)")
+def test_concurrent_appends_preserve_all_rows(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.json"
+    path.write_text(
+        json.dumps({"uploads": [{"video_id": "seed"}]}),
+        encoding="utf-8",
+    )
+    barrier = threading.Barrier(5)
+    errors: list[BaseException] = []
+
+    def worker(i: int) -> None:
+        try:
+            barrier.wait()
+            history.append_upload_record(
+                path,
+                video_id=f"tid{i}",
+                title="t",
+                source_url="https://u",
+                privacy="public",
+                run_id=str(i),
+            )
+        except BaseException as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert len(data["uploads"]) == 6
+    ids = {row["video_id"] for row in data["uploads"]}
+    assert ids == {"seed", "tid0", "tid1", "tid2", "tid3", "tid4"}
