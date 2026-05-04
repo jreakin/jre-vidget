@@ -14,29 +14,32 @@ See [docs/SETUP.md](docs/SETUP.md) for detailed instructions on obtaining each c
 
 ## Status & quality
 
+Badges use [Shields.io](https://shields.io/) (`img.shields.io`) unless noted.
+
 [![CI](https://img.shields.io/github/actions/workflow/status/jreakin/jre-vidget/ci.yml?branch=main&logo=github&label=CI)](https://github.com/jreakin/jre-vidget/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/jreakin/jre-vidget)](https://github.com/jreakin/jre-vidget/blob/main/LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://github.com/jreakin/jre-vidget/blob/main/pyproject.toml)
-[![Release](https://img.shields.io/github/v/release/jreakin/jre-vidget?logo=github)](https://github.com/jreakin/jre-vidget/releases)
+[![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fjreakin%2Fjre-vidget%2Fmain%2Fpyproject.toml&logo=python&logoColor=white)](https://github.com/jreakin/jre-vidget/blob/main/pyproject.toml)
+[![Release](https://img.shields.io/github/v/release/jreakin/jre-vidget?logo=github&sort=semver)](https://github.com/jreakin/jre-vidget/releases)
+[![Last commit](https://img.shields.io/github/last-commit/jreakin/jre-vidget?logo=git&logoColor=white)](https://github.com/jreakin/jre-vidget/commits/main/)
 
-[![Tests](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](https://github.com/jreakin/jre-vidget/actions/workflows/ci.yml)
+[![pytest](https://img.shields.io/pypi/v/pytest?logo=pytest&logoColor=white&label=pytest)](https://docs.pytest.org/)
 [![Coverage](https://img.shields.io/badge/coverage-pytest--cov-informational?logo=pytest&logoColor=white)](https://github.com/jreakin/jre-vidget/actions/workflows/ci.yml)
-[![Ruff](https://img.shields.io/badge/ruff-lint%20%2B%20format-281E32?logo=ruff&logoColor=D7FF64)](https://docs.astral.sh/ruff/)
-[![mypy](https://img.shields.io/badge/mypy-strict-2B5EA8?logo=mypy&logoColor=white)](https://mypy-lang.org/)
+[![Ruff](https://img.shields.io/pypi/v/ruff?logo=ruff&logoColor=D7FF64&label=ruff)](https://docs.astral.sh/ruff/)
+[![ty](https://img.shields.io/pypi/v/ty?label=ty&logo=python&logoColor=white)](https://docs.astral.sh/ty/)
 
 Line coverage is produced on every CI run (`coverage.json`); pull requests get a [CI report workflow](https://github.com/jreakin/jre-vidget/blob/main/.github/workflows/ci-report.yml) comment with totals and comparison to `main`.
 
 ## Stack
 
-Runtime and packaging ([Shields.io](https://shields.io/) static badges):
+Runtime and packaging (PyPI [Shields.io](https://shields.io/) badges where published; otherwise static):
 
-[![Typer](https://img.shields.io/badge/Typer-CLI-7C3AED?logo=python&logoColor=white)](https://typer.tiangolo.com/)
-[![Rich](https://img.shields.io/badge/Rich-terminal%20UI-FFAA00?logo=rich&logoColor=black)](https://rich.readthedocs.io/)
-[![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
-[![yt--dlp](https://img.shields.io/badge/yt--dlp-downloads-248077?logo=youtube&logoColor=white)](https://github.com/yt-dlp/yt-dlp)
-[![ffmpeg--python](https://img.shields.io/badge/ffmpeg--python-wrapper-007808?logo=ffmpeg&logoColor=white)](https://github.com/kkroening/ffmpeg-python)
-[![uv](https://img.shields.io/badge/uv-astral-7056BF?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
-[![Hatchling](https://img.shields.io/badge/build-hatchling-3775A9?logo=hatch&logoColor=white)](https://hatch.pypa.io/latest/build/)
+[![Typer](https://img.shields.io/pypi/v/typer?logo=python&logoColor=white&label=Typer)](https://typer.tiangolo.com/)
+[![Rich](https://img.shields.io/pypi/v/rich?logo=rich&label=Rich)](https://rich.readthedocs.io/)
+[![Pydantic](https://img.shields.io/pypi/v/pydantic?logo=pydantic&logoColor=white&label=Pydantic)](https://docs.pydantic.dev/)
+[![yt-dlp](https://img.shields.io/pypi/v/yt-dlp?logo=youtube&logoColor=white&label=yt-dlp)](https://github.com/yt-dlp/yt-dlp)
+[![ffmpeg-python](https://img.shields.io/pypi/v/ffmpeg-python?logo=ffmpeg&logoColor=white&label=ffmpeg-python)](https://github.com/kkroening/ffmpeg-python)
+[![uv](https://img.shields.io/pypi/v/uv?logo=uv&logoColor=white&label=uv)](https://docs.astral.sh/uv/)
+[![Hatchling](https://img.shields.io/pypi/v/hatchling?logo=hatch&logoColor=white&label=hatchling)](https://hatch.pypa.io/latest/build/)
 
 External binary: **[ffmpeg](https://ffmpeg.org/)** on your PATH for conversion and HLS merge.
 
@@ -115,9 +118,9 @@ vidget config reset --yes
 | `make test` | Full pytest suite |
 | `make test-unit` / `make test-integration` | Focused test paths |
 | `make coverage` | Pytest with `--cov=src` and missing lines |
-| `make lint` | Ruff check + mypy on `src/` |
+| `make lint` | Ruff check + [ty](https://docs.astral.sh/ty/) on `src/` and `tests/` |
 | `make format` / `make format-check` | Ruff format (write / verify) |
-| `make typecheck` | mypy only |
+| `make typecheck` | ty only (`src/` + `tests/`) |
 | `make all` | CI-equivalent: format-check, lint, test |
 
 Equivalent with uv:
@@ -127,10 +130,10 @@ uv run pytest
 uv run pytest --cov=src --cov-report=term-missing
 uv run ruff check src/ tests/
 uv run ruff format --check src/ tests/
-uv run mypy src/ --strict
+uv run ty check src/ tests/
 ```
 
-CI (GitHub Actions) runs **quality** (ruff check, ruff format `--check`, mypy) and **tests** (pytest with coverage) on Python 3.12 and 3.13 via the reusable workflows under [`.github/workflows/`](https://github.com/jreakin/jre-vidget/tree/main/.github/workflows).
+CI (GitHub Actions) runs **quality** (ruff check, ruff format `--check`, ty) and **tests** (pytest with coverage) on Python 3.12 and 3.13 via the reusable workflows under [`.github/workflows/`](https://github.com/jreakin/jre-vidget/tree/main/.github/workflows).
 
 ## Implementation phases
 
