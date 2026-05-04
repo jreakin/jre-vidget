@@ -74,6 +74,11 @@ strict = true
 ignore_missing_imports = true
 >>>>>>> Current commit: Add GitNexus docs, Typer CLI, and Rich UI
 
+[[tool.mypy.overrides]]
+module = "jre_vidget.auth"
+# google-auth / oauth2lib are runtime-typed but not fully stubbed for strict mypy
+disable_error_code = ["no-untyped-call"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
