@@ -32,7 +32,7 @@ isProject: false
 
 ## Reconcile stale finding: RF-DEAD-01
 
-The report assumes [`src/jre_vidget/config.py`](src/jre_vidget/config.py) is an unused stub. **Today it is not:** it owns `CONFIG_PATH`, `load_app_config` / `save_app_config`, and plaintext secret serialization for `~/.vidget/config.json`. **Do not delete it.** Treat RF-DEAD-01 as **superseded** by the code-review persistence design ([`AppConfig.load` / `save`](src/jre_vidget/models.py) delegating to `jre_vidget.config`).
+The report assumes [`src/jre_vidget/config.py`](src/jre_vidget/config.py) is an unused stub. **Today it is not:** it owns `CONFIG_PATH`, `load_app_config` / `save_app_config`, and plaintext secret serialization for `~/.vidget/config.json`. **Do not delete it.** Treat RF-DEAD-01 as **superseded** by the persistence design: callers use `jre_vidget.config` directly; [`AppConfig`](src/jre_vidget/models.py) is data-only.
 
 ## Gap analysis vs current repo
 

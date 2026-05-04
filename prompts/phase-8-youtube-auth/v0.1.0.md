@@ -69,6 +69,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from jre_vidget.auth import AuthError, get_credentials, login_browser, logout
+from jre_vidget.config import load_app_config
 from jre_vidget.models import AppConfig, AuthConfig
 
 
@@ -194,8 +195,8 @@ class TestGetCredentials:
 
 class TestLogout:
     def test_clears_all_auth_fields(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(
@@ -211,14 +212,14 @@ class TestLogout:
         assert result.auth.refresh_token is None
 
     def test_saves_to_disk(self, tmp_path, monkeypatch):
-        import jre_vidget.models as m
-        monkeypatch.setattr(m, "CONFIG_PATH", tmp_path / "config.json")
+        import jre_vidget.config as vidget_cfg
+        monkeypatch.setattr(vidget_cfg, "CONFIG_PATH", tmp_path / "config.json")
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token="rt")
         result = logout(cfg)
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is None
 ```
 
@@ -256,6 +257,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from jre_vidget.config import save_app_config
 from jre_vidget.models import AppConfig, AuthConfig
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -340,7 +342,7 @@ def logout(cfg: AppConfig) -> AppConfig:
     Returns the updated AppConfig.
     """
     cfg.auth = AuthConfig()
-    cfg.save()
+    save_app_config(cfg)
     return cfg
 ```
 
@@ -387,7 +389,7 @@ git commit -m "feat: add YouTube OAuth auth module"
 - [ ] `get_credentials` refreshes expired tokens transparently
 - [ ] `get_credentials` raises `AuthError` on `RefreshError`
 - [ ] `get_credentials` reads `VIDGET_CLIENT_ID` / `VIDGET_CLIENT_SECRET` env vars
-- [ ] `logout` clears all fields and calls `cfg.save()`
+- [ ] `logout` clears all fields and calls `save_app_config(cfg)`
 - [ ] All tests in `test_auth.py` pass
 - [ ] No existing tests broken
 - [ ] `mypy --strict` clean

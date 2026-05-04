@@ -205,7 +205,7 @@ def test_keyboard_interrupt_handled(tmp_path):
     assert result.exit_code == 130
 
 def test_config_reset(tmp_path, monkeypatch):
-    monkeypatch.setattr("jre_vidget.models.CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
     result = runner.invoke(app, ["config", "reset", "--yes"])
     assert result.exit_code == 0
     assert not (tmp_path / "config.json").exists()

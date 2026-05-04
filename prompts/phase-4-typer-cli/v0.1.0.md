@@ -138,15 +138,15 @@ def config_set(
 ```
 
 Implementation steps:
-1. Load current `AppConfig`
+1. Load current config via `load_app_config()` from `jre_vidget.config`
 2. Apply any non-None options over the loaded config
-3. Call `config.save()`
+3. Call `save_app_config(cfg)`
 4. Print confirmation of what changed
 
 ---
 
 ## Shared option defaults pattern
-To avoid repeating `AppConfig.load()` in every command, use a shared
+To avoid repeating `load_app_config()` in every command, use a shared
 helper at the top of `cli.py`:
 
 ```python
@@ -157,7 +157,9 @@ def _resolve(value, default):
 
 Use it like:
 ```python
-cfg = AppConfig.load()
+from jre_vidget.config import load_app_config
+
+cfg = load_app_config()
 quality = _resolve(quality, cfg.quality)
 ```
 

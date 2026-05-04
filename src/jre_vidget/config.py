@@ -1,12 +1,11 @@
 """
 User config persistence for jre-vidget (Pydantic v2).
 
-``AppConfig`` lives in ``jre_vidget.models``; this module reads and writes it to
-``CONFIG_PATH`` (``~/.vidget/config.json``). Callers use :func:`load_app_config`
-and :func:`save_app_config` for all persistence (CLI commands, ``auth.logout``,
-etc.). OAuth fields are written
-as plaintext on disk where set; on POSIX the config directory uses mode ``0o700``
-and the file ``0o600``.
+``AppConfig`` is defined in ``jre_vidget.models``; this module reads and writes it
+to ``CONFIG_PATH`` (``~/.vidget/config.json``). All persistence goes through
+:func:`load_app_config` and :func:`save_app_config` (CLI commands, ``auth.logout``,
+etc.). OAuth fields are written as plaintext on disk where set; on POSIX the
+config directory uses mode ``0o700`` and the file ``0o600``.
 """
 
 from __future__ import annotations

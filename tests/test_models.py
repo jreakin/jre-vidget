@@ -21,6 +21,13 @@ def test_video_format_audio_only() -> None:
     assert f.is_audio_only
 
 
+def test_app_config_has_no_load_save_methods() -> None:
+    """Persistence API lives on jre_vidget.config, not on the model (regression guard)."""
+    assert not hasattr(AppConfig, "load")
+    cfg = AppConfig()
+    assert not hasattr(cfg, "save")
+
+
 def test_app_config_roundtrip(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
     cfg = AppConfig(quality=Quality.P720)

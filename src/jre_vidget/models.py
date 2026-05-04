@@ -234,7 +234,7 @@ class PublishResult(BaseModel):
 
 
 class AppConfig(BaseModel):
-    """User preferences persisted under ~/.vidget/config.json."""
+    """User preference shape for ``~/.vidget/config.json`` (read/write via ``jre_vidget.config``)."""
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
