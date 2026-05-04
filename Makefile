@@ -1,4 +1,5 @@
-.PHONY: install dev test lint format typecheck clean check all
+.PHONY: install dev test lint format typecheck clean check all \
+        docker-build docker-run docker-stop server
 
 # Install runtime dependencies
 install:
@@ -53,3 +54,24 @@ clean:
 
 # Run all quality checks (CI equivalent)
 all: format-check lint test
+
+# ---------------------------------------------------------------------------
+# Docker / server
+# ---------------------------------------------------------------------------
+
+# Build the Docker image locally
+docker-build:
+	docker build -t jre-vidget .
+
+# Run the server locally via Docker (mirrors Railway environment)
+docker-run: docker-build
+	mkdir -p ./downloads
+	docker run --rm -p 8000:8000 \
+		-v "$(PWD)/downloads:/downloads" \
+		-e VIDGET_API_KEY=dev-secret \
+		-e DOWNLOADS_DIR=/downloads \
+		jre-vidget
+
+# Run the server locally without Docker (requires server extras installed)
+server:
+	uv run --extra server uvicorn jre_vidget.server:app --reload --port 8000
