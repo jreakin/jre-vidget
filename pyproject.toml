@@ -21,11 +21,6 @@ dev = [
     "pytest-cov>=4",
     "ruff>=0.4",
     "mypy>=1.9",
-    "httpx>=0.27",        # async test client for FastAPI
-]
-server = [
-    "fastapi>=0.111",
-    "uvicorn[standard]>=0.30",
 ]
 
 [project.scripts]
