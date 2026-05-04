@@ -1,0 +1,126 @@
+name: Download & publish to YouTube
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Video URL to download"
+        required: true
+        type: string
+      title:
+        description: "YouTube title (leave blank to use scraped title)"
+        required: false
+        type: string
+        default: ""
+      description:
+        description: "YouTube description"
+        required: false
+        type: string
+        default: ""
+      privacy:
+        description: "Privacy setting"
+        required: false
+        type: choice
+        default: "public"
+        options:
+          - public
+          - unlisted
+          - private
+      remove_after_upload:
+        description: "Delete local file after successful upload"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install project
+        run: uv sync
+
+      - name: Download & publish
+        id: publish
+        env:
+          VIDGET_CLIENT_ID: ${{ secrets.VIDGET_CLIENT_ID }}
+          VIDGET_CLIENT_SECRET: ${{ secrets.VIDGET_CLIENT_SECRET }}
+          VIDGET_REFRESH_TOKEN: ${{ secrets.VIDGET_REFRESH_TOKEN }}
+          INPUT_URL: ${{ inputs.url }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_DESCRIPTION: ${{ inputs.description }}
+          INPUT_PRIVACY: ${{ inputs.privacy }}
+          INPUT_REMOVE: ${{ inputs.remove_after_upload }}
+        run: |
+          ARGS=(download "$INPUT_URL" --publish --description "$INPUT_DESCRIPTION" --privacy "$INPUT_PRIVACY")
+          if [ -n "$INPUT_TITLE" ]; then
+            ARGS+=(--title "$INPUT_TITLE")
+          fi
+          if [ "$INPUT_REMOVE" = "true" ]; then
+            ARGS+=(--remove)
+          fi
+
+          OUTPUT=$(uv run vidget "${ARGS[@]}" 2>&1) && vidget_rc=0 || vidget_rc=$?
+          echo "$OUTPUT"
+          if [ "$vidget_rc" -ne 0 ]; then exit "$vidget_rc"; fi
+
+          VIDEO_ID=$(echo "$OUTPUT" | grep -oP 'watch\?v=\K[A-Za-z0-9_-]+' | head -1) || true
+          echo "video_id=$VIDEO_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Update uploads.json
+        if: steps.publish.outputs.video_id != ''
+        env:
+          VIDEO_ID: ${{ steps.publish.outputs.video_id }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_URL: ${{ inputs.url }}
+          INPUT_PRIVACY: ${{ inputs.privacy }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 <<'PY'
+          import datetime
+          import json
+          import os
+
+          path = "uploads.json"
+          with open(path) as f:
+              data = json.load(f)
+
+          video_id = os.environ["VIDEO_ID"]
+          title = os.environ.get("INPUT_TITLE") or "untitled"
+          record = {
+              "video_id": video_id,
+              "url": f"https://youtube.com/watch?v={video_id}",
+              "title": title,
+              "source_url": os.environ["INPUT_URL"],
+              "privacy": os.environ["INPUT_PRIVACY"],
+              "uploaded_at": datetime.datetime.utcnow().isoformat() + "Z",
+              "run_id": os.environ["RUN_ID"],
+          }
+          data["uploads"].insert(0, record)
+
+          with open(path, "w") as f:
+              json.dump(data, f, indent=2)
+          PY
+
+      - name: Commit uploads.json
+        if: steps.publish.outputs.video_id != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add uploads.json
+          git diff --staged --quiet || git commit -m "chore: record upload ${{ steps.publish.outputs.video_id }}"
+          git push
