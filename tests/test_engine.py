@@ -8,7 +8,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from yt_dlp.utils import DownloadError
 
-from jre_vidget.engine import EngineError, build_ydl_opts, download, download_batch, fetch_info
+from jre_vidget.engine import (
+    YDL_SOCKET_TIMEOUT_SECONDS,
+    EngineError,
+    build_ydl_opts,
+    download,
+    download_batch,
+    fetch_info,
+)
 from jre_vidget.models import (
     BatchJob,
     DownloadConfig,
@@ -24,6 +31,7 @@ def test_build_ydl_opts_mp4() -> None:
     opts = build_ydl_opts(cfg)
     assert "720" in opts["format"]
     assert opts["merge_output_format"] == "mp4"
+    assert opts["socket_timeout"] == YDL_SOCKET_TIMEOUT_SECONDS
 
 
 def test_build_ydl_opts_mp3_uses_extract_audio() -> None:

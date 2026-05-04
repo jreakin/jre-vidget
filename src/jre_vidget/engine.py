@@ -36,6 +36,9 @@ from jre_vidget.models import (
 
 log = logging.getLogger(__name__)
 
+# Bound network waits for yt-dlp extract/download (seconds).
+YDL_SOCKET_TIMEOUT_SECONDS = 30
+
 
 def _base_ydl_opts() -> dict[str, Any]:
     """Shared yt-dlp flags for all engine call sites (quiet, single video, no playlist)."""
@@ -43,6 +46,7 @@ def _base_ydl_opts() -> dict[str, Any]:
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
+        "socket_timeout": YDL_SOCKET_TIMEOUT_SECONDS,
     }
 
 

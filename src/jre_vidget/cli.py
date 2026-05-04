@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import subprocess
 import sys
 from importlib.metadata import version as pkg_version
@@ -32,6 +34,25 @@ from jre_vidget.models import (
 from jre_vidget.publisher import PublishError
 
 console = Console()
+
+_logging_configured = False
+
+
+def _log_level_from_env() -> int:
+    """Resolve ``VIDGET_LOG_LEVEL`` to a ``logging`` module level constant."""
+    raw = os.getenv("VIDGET_LOG_LEVEL", "WARNING").strip()
+    name = raw.upper() if raw else "WARNING"
+    candidate = getattr(logging, name, logging.WARNING)
+    return candidate if isinstance(candidate, int) else logging.WARNING
+
+
+def _ensure_cli_logging() -> None:
+    """Apply ``logging.basicConfig`` once per process from ``VIDGET_LOG_LEVEL``."""
+    global _logging_configured
+    if _logging_configured:
+        return
+    logging.basicConfig(level=_log_level_from_env())
+    _logging_configured = True
 
 
 def _is_headless() -> bool:
@@ -77,6 +98,7 @@ def main(
     ),
 ) -> None:
     """Global options; runs before every subcommand."""
+    _ensure_cli_logging()
     if ctx.invoked_subcommand != "config":
         checks.check_dependencies()
 
