@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from jre_vidget.youtube_urls import build_youtube_watch_url
+
 fcntl: Any
 try:
     import fcntl as _fcntl_impl
@@ -83,11 +85,6 @@ def load_uploads(path: Path) -> dict[str, Any]:
 
 def _utc_iso_z() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-
-def build_youtube_watch_url(video_id: str) -> str:
-    """Canonical watch URL stored in history (matches prior workflow output)."""
-    return f"https://youtube.com/watch?v={video_id}"
 
 
 def _build_record(

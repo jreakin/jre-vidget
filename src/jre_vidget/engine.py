@@ -8,6 +8,7 @@ See prompts/phase-3-download-engine/current.md for the spec.
 from __future__ import annotations
 
 import logging
+import math
 import sys
 import threading
 import time
@@ -78,15 +79,32 @@ ProgressHook = Callable[[ProgressData], None]
 
 
 def _coerce_int(value: Any) -> int | None:
-    """Return ``int(value)`` when ``value`` is int or float (yt-dlp JSON), else ``None``."""
-    if isinstance(value, (int, float)):
+    """
+    Return a whole number from yt-dlp JSON scalars.
+
+    Rejects ``bool`` (``bool`` subclasses ``int``) and non-finite floats so callers
+    do not treat accidental truthiness or ``NaN`` as valid metadata.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
         return int(value)
     return None
 
 
 def _coerce_float(value: Any) -> float | None:
-    """Return ``float(value)`` when ``value`` is int or float (yt-dlp JSON), else ``None``."""
-    if isinstance(value, (int, float)):
+    """Return a finite float from yt-dlp JSON scalars; rejects ``bool``."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return value
+    if isinstance(value, int):
         return float(value)
     return None
 

@@ -62,6 +62,9 @@ replace-imports-with-any = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "real_dependency_checks: run real check_dependencies (disables autouse mock)",
+]
 
 [build-system]
 requires = ["hatchling"]

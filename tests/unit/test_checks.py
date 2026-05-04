@@ -9,6 +9,8 @@ import typer
 
 from jre_vidget.checks import check_dependencies, verify_dependencies
 
+pytestmark = pytest.mark.real_dependency_checks
+
 
 def test_verify_dependencies_missing_yt_dlp_raises_exit_1(
     capsys: pytest.CaptureFixture[str],

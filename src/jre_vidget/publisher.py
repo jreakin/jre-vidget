@@ -20,8 +20,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from jre_vidget import auth
-from jre_vidget.history import build_youtube_watch_url
 from jre_vidget.models import AuthConfig, PublishConfig, PublishResult
+from jre_vidget.youtube_urls import build_youtube_watch_url
 
 UploadProgressHook = Callable[[int, int], None]  # (bytes_uploaded, total_bytes)
 
