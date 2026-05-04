@@ -25,13 +25,13 @@ todos:
     status: completed
   - id: headless-confirm
     content: _is_headless + config_reset and publish confirm behavior per AGENTS.md
-    status: pending
+    status: completed
   - id: constants-oauth-port
     content: Named constants for retry backoff, discovery window (if kept), OAuth port
-    status: pending
+    status: completed
   - id: ci-coverage-dependabot
     content: pytest --cov-fail-under; add dependabot.yml
-    status: pending
+    status: completed
   - id: docs-logging-pins
     content: Align AGENTS.md structlog claim with code; optional yt-dlp pin policy
     status: pending

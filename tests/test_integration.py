@@ -38,6 +38,20 @@ def test_config_reset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert not cfg_path.exists()
 
 
+def test_config_reset_headless_requires_yes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text('{"output_dir": "/tmp"}', encoding="utf-8")
+    result = runner.invoke(app, ["config", "reset"])
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "non-interactive" in combined.lower()
+    assert "--yes" in combined.lower()
+    assert cfg_path.exists()
+
+
 def test_output_dir_created(tmp_path: Path) -> None:
     new_dir = tmp_path / "new_subdir"
     fake_result = DownloadResult(

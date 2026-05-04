@@ -24,6 +24,9 @@ from jre_vidget.models import AppConfig, AuthConfig
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
+# Port for OAuth redirect callback (InstalledAppFlow.run_local_server).
+OAUTH_LOCAL_SERVER_PORT = 8080
+
 
 class AuthError(Exception):
     """Raised when credentials are missing, invalid, or cannot be refreshed."""
@@ -31,7 +34,7 @@ class AuthError(Exception):
 
 def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     """
-    Run the browser-based OAuth2 flow on localhost:8080.
+    Run the browser-based OAuth2 flow on localhost (see OAUTH_LOCAL_SERVER_PORT).
 
     Opens the Google consent URL in the user's default browser, waits for the
     redirect callback, and returns an AuthConfig with refresh_token populated.
@@ -48,7 +51,7 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
         }
     }
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=8080)
+    creds = flow.run_local_server(port=OAUTH_LOCAL_SERVER_PORT)
 
     rt = creds.refresh_token
     return AuthConfig(

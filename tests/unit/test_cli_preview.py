@@ -67,7 +67,11 @@ def test_publish_shows_preview_before_dispatching() -> None:
 
 
 def test_publish_cancelled_when_not_confirmed() -> None:
-    with patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW):
+    """TTY-style confirm path (CliRunner is non-TTY; simulate interactive)."""
+    with (
+        patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW),
+        patch("jre_vidget.cli._is_headless", return_value=False),
+    ):
         result = runner.invoke(
             app,
             ["publish", "https://youtube.com/watch?v=abc123"],
@@ -76,3 +80,12 @@ def test_publish_cancelled_when_not_confirmed() -> None:
     assert result.exit_code == 0
     combined = (result.stdout or "").lower() + (result.stderr or "").lower()
     assert "cancelled" in combined
+
+
+def test_publish_url_headless_requires_yes() -> None:
+    with patch("jre_vidget.cli.engine.preview", return_value=FAKE_PREVIEW):
+        result = runner.invoke(app, ["publish", "https://youtube.com/watch?v=abc123"])
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "non-interactive" in combined.lower()
+    assert "--yes" in combined.lower()

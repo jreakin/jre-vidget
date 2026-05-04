@@ -36,6 +36,11 @@ _VALID_PRIVACY = frozenset({"public", "unlisted", "private"})
 console = Console()
 
 
+def _is_headless() -> bool:
+    """True when stdin is not a TTY (pipelines, CI, Typer CliRunner)."""
+    return not sys.stdin.isatty()
+
+
 def _parse_privacy(value: str) -> PrivacyStatus:
     if value not in _VALID_PRIVACY:
         raise typer.BadParameter("privacy must be public, unlisted, or private")
@@ -460,8 +465,14 @@ def config_reset(
     yes: bool = typer.Option(False, "--yes", help="Skip confirmation prompt"),
 ) -> None:
     """Reset all settings to defaults."""
-    if not yes and not typer.confirm("Reset all config to defaults?", default=False):
-        raise typer.Exit(code=0)
+    if not yes:
+        if _is_headless():
+            console.print(
+                "[red]Non-interactive mode: pass --yes to confirm resetting all config.[/red]",
+            )
+            raise typer.Exit(code=2)
+        if not typer.confirm("Reset all config to defaults?", default=False):
+            raise typer.Exit(code=0)
 
     if vidget_config.CONFIG_PATH.exists():
         vidget_config.CONFIG_PATH.unlink()
@@ -562,9 +573,15 @@ def publish(
 
         ui.print_preview(meta)
 
-        if not yes and not typer.confirm("\nPublish this video to YouTube?", default=False):
-            console.print("[yellow]Publish cancelled.[/yellow]")
-            raise typer.Exit(code=0)
+        if not yes:
+            if _is_headless():
+                console.print(
+                    "[red]Non-interactive mode: pass --yes to confirm publishing to YouTube.[/red]",
+                )
+                raise typer.Exit(code=2)
+            if not typer.confirm("\nPublish this video to YouTube?", default=False):
+                console.print("[yellow]Publish cancelled.[/yellow]")
+                raise typer.Exit(code=0)
 
         privacy_parsed = _parse_privacy(privacy)
         try:

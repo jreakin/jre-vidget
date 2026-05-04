@@ -36,6 +36,12 @@ from jre_vidget.models import (
 
 log = logging.getLogger(__name__)
 
+# yt-dlp retry back-off between attempts (seconds).
+RETRY_BACKOFF_SECONDS = 2.0
+# Only consider output files modified within this window when the finished hook
+# did not report a path (seconds).
+FILE_DISCOVERY_WINDOW_SECONDS = 60.0
+
 
 class ProgressData(TypedDict, total=False):
     """Subset of yt-dlp progress dict passed to ProgressHook."""
@@ -331,7 +337,7 @@ def _expected_extension(config: DownloadConfig) -> str:
 
 def _find_newest_output_file(output_dir: Path, ext: str) -> Path | None:
     ext = ext.lower().lstrip(".")
-    cutoff = time.time() - 60.0
+    cutoff = time.time() - FILE_DISCOVERY_WINDOW_SECONDS
     best: tuple[float, Path] | None = None
     try:
         for path in output_dir.iterdir():
@@ -369,7 +375,8 @@ def download(
     2. Ensure config.output_dir exists (mkdir parents, exist_ok)
     3. Build opts via build_ydl_opts(config, progress_hook)
     4. Call ydl.download([config.url]), retrying on DownloadError up to ``retries``
-       times (from ``config.retries`` when ``retries`` is None) with 2s back-off
+       times (from ``config.retries`` when ``retries`` is None) with
+       ``RETRY_BACKOFF_SECONDS`` between attempts
     5. On success → find the output file and return DownloadResult(status=SUCCESS)
     6. On exhausted DownloadError → return DownloadResult(status=FAILED, error=...)
     7. On any other exception → re-raise as EngineError
@@ -397,7 +404,7 @@ def download(
         except YtdlpDownloadError as e:
             if attempt < max_retries:
                 _emit_retry_log(config.url, attempt + 1, max_retries)
-                time.sleep(2.0)
+                time.sleep(RETRY_BACKOFF_SECONDS)
                 attempt += 1
                 finished_paths.clear()
                 continue

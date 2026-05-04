@@ -7,7 +7,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-from jre_vidget.auth import AuthError, get_credentials, login_browser, logout
+from jre_vidget.auth import (
+    OAUTH_LOCAL_SERVER_PORT,
+    AuthError,
+    get_credentials,
+    login_browser,
+    logout,
+)
 from jre_vidget.models import AppConfig, AuthConfig
 
 
@@ -56,7 +62,7 @@ class TestLoginBrowser:
 
             login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=8080)
+        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
 
 
 class TestGetCredentials:
