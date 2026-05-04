@@ -21,6 +21,7 @@ from jre_vidget.models import (
     BatchJob,
     DownloadResult,
     DownloadStatus,
+    OutputFormat,
     Quality,
     VideoInfo,
 )
@@ -52,6 +53,31 @@ def test_resolve_download_config_subs_tri_state(tmp_path: Path) -> None:
     assert (
         _resolve_download_config(cfg_off, None, None, None, True, "https://x.com").subtitles is True
     )
+
+
+def test_resolve_download_config_quality_format_output_merge(tmp_path: Path) -> None:
+    """None defers to AppConfig; explicit CLI values override quality, format, output_dir."""
+    base_out = tmp_path / "from_config"
+    base_out.mkdir()
+    override_out = tmp_path / "from_cli"
+    override_out.mkdir()
+    cfg = AppConfig(output_dir=base_out, quality=Quality.BEST, format=OutputFormat.MP4)
+    merged = _resolve_download_config(cfg, None, None, None, None, "https://x.com")
+    assert merged.quality is Quality.BEST
+    assert merged.format is OutputFormat.MP4
+    assert merged.output_dir == base_out
+
+    overridden = _resolve_download_config(
+        cfg,
+        Quality.P720,
+        OutputFormat.MKV,
+        override_out,
+        None,
+        "https://x.com",
+    )
+    assert overridden.quality is Quality.P720
+    assert overridden.format is OutputFormat.MKV
+    assert overridden.output_dir == override_out
 
 
 def test_resolve_download_config_max_concurrent_optional(tmp_path: Path) -> None:

@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: p3-optional
     content: Raise cov-fail-under toward 80 if pytest --cov supports; RF-DEAD-02 TypeVar cleanup if desired
-    status: pending
+    status: completed
   - id: approval-cli-split
     content: "If approved only: P2-MAINT-08 split cli.py into commands/ subpackage"
     status: pending

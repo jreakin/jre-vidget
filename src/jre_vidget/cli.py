@@ -10,7 +10,6 @@ import sys
 from dataclasses import dataclass
 from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import TypeVar
 
 import typer
 from rich.console import Console
@@ -108,14 +107,6 @@ def main(
         checks.check_dependencies()
 
 
-T = TypeVar("T")
-
-
-def _resolve(value: T | None, default: T) -> T:
-    """Return value if set, otherwise fall back to default."""
-    return value if value is not None else default
-
-
 def _resolve_download_config(
     cfg: AppConfig,
     quality: Quality | None,
@@ -127,9 +118,9 @@ def _resolve_download_config(
     max_concurrent: int | None = None,
 ) -> DownloadConfig:
     """Merge CLI overrides with saved defaults (``subs`` uses tri-state: None → config)."""
-    resolved_quality = _resolve(quality, cfg.quality)
-    resolved_format = _resolve(out_format, cfg.format)
-    resolved_output = _validate_output(_resolve(output, cfg.output_dir))
+    resolved_quality = quality if quality is not None else cfg.quality
+    resolved_format = out_format if out_format is not None else cfg.format
+    resolved_output = _validate_output(output if output is not None else cfg.output_dir)
     resolved_subs = cfg.subtitles if subs is None else subs
     kwargs: dict[str, object] = {
         "url": url,
