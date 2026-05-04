@@ -32,23 +32,40 @@ jre-vidget/
 │   ├── __init__.py
 │   ├── cli.py        # Typer app — entry point for `vidget` command
 │   ├── engine.py     # yt-dlp wrapper — fetch_info, download, download_batch
-│   ├── models.py     # Pydantic v2 data models
+│   ├── models.py     # Pydantic v2 data models (incl. YouTube publish models)
 │   ├── config.py     # AppConfig — persists to ~/.vidget/config.json
 │   ├── ui.py         # Rich UI — spinner, progress bar, tables, panels
-│   └── checks.py     # Dependency pre-flight (yt-dlp + ffmpeg)
+│   ├── checks.py     # Dependency pre-flight (yt-dlp + ffmpeg)
+│   ├── auth.py       # YouTube OAuth2 — get_credentials(), VIDGET_* env var support
+│   └── publisher.py  # YouTube Data API v3 upload wrapper — upload()
 ├── tests/
-│   ├── unit/         # Pure unit tests (no network, no real yt-dlp)
+│   ├── unit/         # Pure unit tests (no network, no real yt-dlp or YouTube API)
 │   └── integration/  # Full-stack tests with mocked yt-dlp
+├── web/              # Vite + React + TanStack browser UI (deployed to gh-pages)
+│   ├── src/          # TypeScript source — components, pages, api/, hooks/
+│   ├── dist/         # Built output (committed, served by GitHub Pages)
+│   └── package.json
 ├── prompts/          # Phase-build prompts for AI coding agents
 │   ├── phase-1-project-scaffold/
 │   ├── phase-2-pydantic-models/
 │   ├── phase-3-download-engine/
 │   ├── phase-4-typer-cli/
 │   ├── phase-5-rich-ui/
-│   └── phase-6-config-error-polish/
-├── docs/adr/         # AI Decision Records
-├── SKILL.md          # Agent workflow guide (capabilities, exit codes, JSON shapes)
-└── Makefile          # Standard dev entrypoints (make test, make lint, make install)
+│   ├── phase-6-config-error-polish/
+│   ├── phase-7-youtube-models/
+│   ├── phase-8-youtube-auth/
+│   ├── phase-9-youtube-publisher/
+│   ├── phase-10-youtube-cli/
+│   ├── phase-11-actions-workflow/
+│   ├── phase-12-web-ui/
+│   ├── phase-13-error-reporting/
+│   └── phase-14-bootstrap-workflow/
+├── .github/workflows/  # CI + publish + deploy-web + bootstrap workflows
+├── docs/adr/           # Architecture Decision Records
+├── docs/SETUP.md       # Cloner setup guide — OAuth, secrets, GitHub Pages
+├── uploads.json        # Upload history (appended by publish.yml workflow)
+├── SKILL.md            # Agent workflow guide (capabilities, exit codes, JSON shapes)
+└── Makefile            # Standard dev entrypoints (make test, make lint, make install)
 ```
 
 ---
@@ -65,6 +82,14 @@ jre-vidget/
 | 4 | `prompts/phase-4-typer-cli/current.md` | cli.py (all commands) |
 | 5 | `prompts/phase-5-rich-ui/current.md` | ui.py (Rich UI functions) |
 | 6 | `prompts/phase-6-config-error-polish/current.md` | checks.py, retries, --version, install.sh |
+| 7 | `prompts/phase-7-youtube-models/current.md` | AuthConfig, PublishConfig, PublishResult in models.py |
+| 8 | `prompts/phase-8-youtube-auth/current.md` | auth.py — OAuth2 get_credentials(), env var overrides |
+| 9 | `prompts/phase-9-youtube-publisher/current.md` | publisher.py — resumable YouTube upload |
+| 10 | `prompts/phase-10-youtube-cli/current.md` | `vidget download --publish` CLI command |
+| 11 | `prompts/phase-11-actions-workflow/current.md` | publish.yml workflow + VIDGET_REFRESH_TOKEN env var |
+| 12 | `prompts/phase-12-web-ui/current.md` | Vite + React browser UI on gh-pages |
+| 13 | `prompts/phase-13-error-reporting/current.md` | Automated error reporting + ErrorBoundary |
+| 14 | `prompts/phase-14-bootstrap-workflow/current.md` | bootstrap.yml — scaffold secrets/variables for cloners |
 
 **To implement a phase:** Read `current.md` in the phase directory before writing any code.
 **To update a prompt:** Create a new `v{X.Y.Z}.md`, copy it to `current.md`, append to `CHANGELOG.md`.
