@@ -16,7 +16,7 @@
 
 - [ ] `uv run ruff check src/ tests/` — no lint errors
 - [ ] `uv run ruff format --check src/ tests/` — no format violations
-- [ ] `uv run mypy src/ --strict` — no type errors
+- [ ] `uv run ty check src/ tests/` — no type errors
 - [ ] `uv run pytest` — all tests pass
 - [ ] `uv run pytest --cov=src --cov-report=term-missing` — coverage maintained or improved
 - [ ] New behaviour covered by unit tests in `tests/unit/`
