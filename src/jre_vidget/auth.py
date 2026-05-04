@@ -20,6 +20,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from pydantic import SecretStr
 
+from jre_vidget.config import save_app_config
 from jre_vidget.models import AppConfig, AuthConfig
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -112,5 +113,5 @@ def logout(cfg: AppConfig) -> AppConfig:
     Returns the updated AppConfig.
     """
     cfg.auth = AuthConfig()
-    cfg.save()
+    save_app_config(cfg)
     return cfg

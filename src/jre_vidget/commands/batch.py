@@ -8,7 +8,8 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
-from jre_vidget.models import AppConfig, BatchJob, OutputFormat, Quality
+from jre_vidget.config import load_app_config
+from jre_vidget.models import BatchJob, OutputFormat, Quality
 
 
 def batch(
@@ -36,7 +37,7 @@ def batch(
     if not json_output:
         cc.ui.print_batch_intro(len(urls))
 
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     base = cc.resolve_download_config(
         cfg,
         quality,

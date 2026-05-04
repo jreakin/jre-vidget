@@ -12,6 +12,7 @@ from pydantic import SecretStr
 from typer.testing import CliRunner
 
 from jre_vidget.cli import app
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import (
     AppConfig,
     AuthConfig,
@@ -66,7 +67,7 @@ class TestAuthLogin:
                 input="cid\ncsecret\n",
             )
 
-        cfg = AppConfig.load()
+        cfg = load_app_config()
         assert cfg.auth.refresh_token is not None
         assert cfg.auth.refresh_token.get_secret_value() == "saved_token"
 
@@ -108,7 +109,7 @@ class TestAuthStatus:
     def test_shows_connected_when_token_present(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "status"])
         assert result.exit_code == 0
@@ -127,12 +128,12 @@ class TestAuthLogout:
     def test_logout_clears_token(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         result = runner.invoke(app, ["auth", "logout"])
         assert result.exit_code == 0
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is None
 
 
@@ -146,7 +147,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         mock_result = PublishResult(
             video_id="abc123",
@@ -166,7 +167,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -197,7 +198,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         from jre_vidget.publisher import PublishError
 
@@ -212,7 +213,7 @@ class TestPublishCommand:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         with patch("jre_vidget.cli_common.publisher.upload") as mock_upload:
             mock_upload.return_value = PublishResult(
@@ -234,7 +235,7 @@ class TestDownloadWithPublish:
     def test_download_publish_calls_fetch_info_first(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -278,7 +279,7 @@ class TestDownloadWithPublish:
     def test_download_publish_uses_scraped_title(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()
@@ -321,7 +322,7 @@ class TestDownloadWithPublish:
     def test_download_publish_title_override(self, tmp_path: Path) -> None:
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
-        cfg.save()
+        save_app_config(cfg)
 
         fake_file = tmp_path / "video.mp4"
         fake_file.touch()

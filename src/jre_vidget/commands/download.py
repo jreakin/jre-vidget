@@ -9,8 +9,8 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
+from jre_vidget.config import load_app_config
 from jre_vidget.models import (
-    AppConfig,
     DownloadConfig,
     DownloadResult,
     DownloadStatus,
@@ -112,7 +112,7 @@ def download(
     ),
 ) -> None:
     """Download a single video."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     dl_cfg = cc.resolve_download_config(cfg, quality, out_format, output, subs, url)
 
     video_info = None

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import (
     AppConfig,
     AuthConfig,
@@ -126,9 +127,9 @@ class TestAppConfigEmbedding:
 
         cfg = AppConfig()
         cfg.auth = AuthConfig(refresh_token=SecretStr("mytoken"))
-        cfg.save()
+        save_app_config(cfg)
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is not None
         assert restored.auth.refresh_token.get_secret_value() == "mytoken"
 
@@ -145,14 +146,14 @@ class TestAppConfigEmbedding:
             client_secret=SecretStr("plain-secret"),
             refresh_token=SecretStr("plain-rt"),
         )
-        cfg.save()
+        save_app_config(cfg)
 
         raw = (tmp_path / "config.json").read_text(encoding="utf-8")
         assert "plain-secret" in raw
         assert "plain-rt" in raw
         assert "**********" not in raw
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.client_secret is not None
         assert restored.auth.client_secret.get_secret_value() == "plain-secret"
         assert restored.auth.refresh_token is not None

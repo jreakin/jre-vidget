@@ -7,6 +7,7 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
+from jre_vidget.config import load_app_config
 from jre_vidget.models import AppConfig, DownloadError, PrivacyStatus, PublishConfig
 
 
@@ -129,7 +130,7 @@ def publish(
     ),
 ) -> None:
     """Upload a local file to YouTube, or preview then dispatch Actions publish for a URL."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
 
     if cc.is_remote_publish_target(target):
         _run_remote_publish_flow(

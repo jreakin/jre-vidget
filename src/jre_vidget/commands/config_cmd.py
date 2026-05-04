@@ -7,12 +7,13 @@ from pathlib import Path
 import typer
 
 from jre_vidget import cli_common as cc
-from jre_vidget.models import AppConfig, OutputFormat, Quality
+from jre_vidget.config import load_app_config, save_app_config
+from jre_vidget.models import OutputFormat, Quality
 
 
 def config_show() -> None:
     """Print current saved configuration."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     cc.ui.print_config(cfg)
 
 
@@ -27,7 +28,7 @@ def config_set(
     subs: bool | None = typer.Option(None, "--subs/--no-subs"),
 ) -> None:
     """Update stored defaults (only specified options change)."""
-    cfg = AppConfig.load()
+    cfg = load_app_config()
     changed: list[str] = []
 
     if output is not None:
@@ -47,7 +48,7 @@ def config_set(
         cc.ui.print_warning("No options given; nothing to update.")
         raise typer.Exit(code=0)
 
-    cfg.save()
+    save_app_config(cfg)
     cc.ui.print_success("Updated: " + ", ".join(changed))
 
 

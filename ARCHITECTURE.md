@@ -67,8 +67,8 @@ After exhausting retries, returns `DownloadResult(status=FAILED, error=...)` —
 ## Config Management
 
 - Config stored at `~/.vidget/config.json`
-- Loaded lazily by `AppConfig.load()` classmethod
-- Saved via `AppConfig.save()` using `model_dump_json()`
+- Loaded with `jre_vidget.config.load_app_config()` (returns `AppConfig` defaults if the file is missing)
+- Saved with `jre_vidget.config.save_app_config(cfg)` (writes JSON with plaintext OAuth fields where set; not a raw `model_dump_json()` so secrets persist readably)
 - CLI flags override persisted defaults when set; omitted options fall back to `AppConfig` (see `_resolve_download_config` in `cli.py`)
 - `vidget config reset --yes` deletes the file
 

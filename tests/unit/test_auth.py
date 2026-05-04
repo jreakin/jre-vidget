@@ -14,6 +14,7 @@ from jre_vidget.auth import (
     login_browser,
     logout,
 )
+from jre_vidget.config import load_app_config
 from jre_vidget.models import AppConfig, AuthConfig
 
 
@@ -219,5 +220,5 @@ class TestLogout:
         cfg.auth = AuthConfig(refresh_token=SecretStr("rt"))
         logout(cfg)
 
-        restored = AppConfig.load()
+        restored = load_app_config()
         assert restored.auth.refresh_token is None

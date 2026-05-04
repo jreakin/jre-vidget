@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase-d-models-io
     content: "RF-ARCH-01 + P1-ARCH-002: migrate AppConfig.load/save to config module; remove lazy methods from models; update auth.py, commands, tests; ARCHITECTURE load/save wording"
-    status: pending
+    status: completed
   - id: phase-e-oauth-strfield-tools
     content: P1-SEC-001 oauth port; P3-QUAL-003 _str_field consistency; Makefile optional radon/vulture per refactoring table
     status: pending

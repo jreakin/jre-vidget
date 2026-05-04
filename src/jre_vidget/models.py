@@ -245,18 +245,6 @@ class AppConfig(BaseModel):
     max_concurrent: int = 3
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
-    @classmethod
-    def load(cls) -> AppConfig:
-        from jre_vidget import config as _app_config
-
-        return _app_config.load_app_config()
-
-    def save(self) -> None:
-        """Write config to disk with plaintext OAuth secrets (not ``model_dump_json`` masking)."""
-        from jre_vidget import config as _app_config
-
-        _app_config.save_app_config(self)
-
 
 class DownloadStatus(StrEnum):
     """Terminal status of a download attempt."""

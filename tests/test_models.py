@@ -1,5 +1,6 @@
 """Unit tests for Pydantic models (phase 2)."""
 
+from jre_vidget.config import load_app_config, save_app_config
 from jre_vidget.models import (
     AppConfig,
     BatchJob,
@@ -23,8 +24,8 @@ def test_video_format_audio_only() -> None:
 def test_app_config_roundtrip(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")
     cfg = AppConfig(quality=Quality.P720)
-    cfg.save()
-    loaded = AppConfig.load()
+    save_app_config(cfg)
+    loaded = load_app_config()
     assert loaded.quality == Quality.P720
 
 

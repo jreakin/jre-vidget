@@ -117,7 +117,7 @@ CLI command code imports services through ``jre_vidget.cli_common``. The thin ``
 | `yt_dlp.YoutubeDL` | unit tests for engine | `unittest.mock.patch` |
 | `engine.download` | CLI integration tests | `patch("jre_vidget.cli.engine.download")` or `patch("jre_vidget.cli_common.engine.download")` (same module object) |
 | `engine.download_batch` | CLI batch tests | `patch("jre_vidget.cli.engine.download_batch")` or `patch("jre_vidget.cli_common.engine.download_batch")` |
-| `AppConfig.load` | CLI tests with custom config | `monkeypatch` |
+| `load_app_config` | CLI tests with custom config | `monkeypatch` `CONFIG_PATH` |
 | `CONFIG_PATH` | config tests | `monkeypatch.setattr` |
 
 ---
