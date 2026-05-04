@@ -203,7 +203,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.meta.outputs.skip != 'true'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: ci-report
           number: ${{ steps.meta.outputs.pr_number }}
