@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 import typer
+from google.auth.exceptions import GoogleAuthError
 
 from jre_vidget import cli_common as cc
 from jre_vidget.config import load_app_config, save_app_config
+
+_log = logging.getLogger(__name__)
 
 
 def auth_login() -> None:
@@ -23,7 +28,9 @@ def auth_login() -> None:
         auth_config = cc.auth.login_browser(client_id, client_secret)
     except KeyboardInterrupt:
         raise
-    except Exception as e:  # noqa: BLE001 — OAuth/browser flows raise varied library types; always show a friendly CLI error.
+    except Exception as e:  # noqa: BLE001 — OAuth/browser flows raise varied types
+        if not isinstance(e, (GoogleAuthError, OSError, ValueError)):
+            _log.exception("OAuth login failed")
         cc.console.print(f"[red]Login failed:[/red] {e}")
         raise typer.Exit(code=1) from e
 
