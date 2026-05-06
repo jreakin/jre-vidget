@@ -5,7 +5,7 @@ patterns are discovered.
 
 ```
 Created: 2026-05-03
-Last Updated: 2026-05-03
+Last Updated: 2026-05-06
 Total Signs: 7
 ```
 
@@ -78,13 +78,13 @@ Fox News / YouTube URLs change or geo-block.
 
 **Instruction:**
 1. Use `Path.home() / ".vidget" / "config.json"` — not a string literal
-2. `CONFIG_PATH` constant lives in `models.py` and is imported everywhere else
-3. Tests override `CONFIG_PATH` via `monkeypatch.setattr`
+2. `CONFIG_PATH` and `load_app_config` / `save_app_config` live in `jre_vidget.config` — not in `models.py`
+3. Tests override the path with `monkeypatch.setattr("jre_vidget.config.CONFIG_PATH", tmp_path / "config.json")` (or assign `jre_vidget.config.CONFIG_PATH` in a fixture)
 
 **Reason:** String literals for paths break cross-platform portability and cannot be
 overridden in tests.
 
-**Provenance:** Manual — phase-2 model spec
+**Provenance:** Manual — phase-2 model spec; config module split (Notion assessment / AGENTS.md)
 
 ---
 
@@ -94,12 +94,12 @@ overridden in tests.
 or `checks.py`
 
 **Instruction:**
-1. Use `structlog.get_logger()` for informational/debug output in engine/config
-2. Use `console.print(...)` (Rich) only in `ui.py` and `cli.py`
+1. Use stdlib `logging.getLogger(__name__)` for informational/debug output in `engine.py`, `models.py`, `config.py`, and `checks.py`
+2. Use `console.print(...)` (Rich) only in `ui.py` and `cli.py` (and command modules that intentionally surface CLI output)
 3. The no-print PostToolUse hook will warn on violations
 
 **Reason:** `print()` bypasses logging infrastructure and cannot be suppressed
-in library/programmatic use.
+in library/programmatic use. The project standard is stdlib logging (not structlog) unless an ADR adds it.
 
 **Provenance:** Manual — AGENTS.md NEVER DO list; enforced by `.claude/hooks/no-print-check.sh`
 

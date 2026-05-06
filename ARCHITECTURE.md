@@ -10,6 +10,9 @@ and exposes them through a Typer CLI with a Rich terminal UI.
 User → vidget CLI (cli.py mounts commands)
          ├── commands/*.py        → per-command Typer handlers
          ├── cli_common.py        → shared download/publish helpers, Rich Console(stderr=True)
+         ├── publish_flow.py      → publish title + PublishConfig assembly (pure helpers)
+         ├── github_workflow.py   → gh workflow run publish.yml (subprocess)
+         ├── youtube_urls.py      → canonical YouTube watch URL string
          ├── engine.fetch_info()  → VideoInfo (formats, metadata)
          ├── engine.download()    → DownloadResult (filepath, status)
          ├── engine.download_batch() → BatchJob (per-URL results)
@@ -28,7 +31,10 @@ User → vidget CLI (cli.py mounts commands)
 |--------|---------|
 | `cli.py` | Typer app entry — mounts command groups (`config`, `auth`, `history`, …) and links to `commands/*` |
 | `commands/*.py` | Individual commands (`download`, `batch`, `publish_cmd`, …) |
-| `cli_common.py` | Shared CLI orchestration: `resolve_download_config`, progress session, publish-after-download, `gh workflow run` dispatch |
+| `cli_common.py` | Shared CLI orchestration: `resolve_download_config`, progress session, publish-after-download; calls `publish_flow` / `github_workflow` / engine / publisher |
+| `publish_flow.py` | Pure publish orchestration: title resolution, `PublishConfig` assembly (no Typer/Rich) |
+| `github_workflow.py` | `gh workflow run` for `publish.yml` (GitHub CLI subprocess) |
+| `youtube_urls.py` | `build_youtube_watch_url` — shared by publisher and upload history |
 | `engine.py` | yt-dlp wrapper — pure business logic, no UI imports |
 | `models.py` | Pydantic v2 data models for config, video info, results |
 | `config.py` | `load_app_config` / `save_app_config` — JSON persistence to `~/.vidget/config.json` |
