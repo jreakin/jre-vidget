@@ -1,6 +1,6 @@
 [project]
 name = "jre-vidget"
-version = "0.1.4"
+version = "0.1.5"
 description = "CLI video downloader built on yt-dlp — a local replacement for iTube Studio"
 readme = "README.md"
 authors = [
