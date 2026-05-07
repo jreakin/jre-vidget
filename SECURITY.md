@@ -34,9 +34,9 @@ We ship security fixes only for the **latest minor release** on the default bran
 | Tool | Role |
 | ---- | ---- |
 | **Dependabot** | Weekly dependency updates for **pip** (`/`), **npm** (`/web`), and **GitHub Actions** (`/`). Review and merge Dependabot PRs promptly; they often carry security patches. |
-| **CodeQL** | Static analysis for **Python** and **JavaScript/TypeScript** on pushes and PRs to `main`, plus a weekly schedule. Findings appear under **Security** → **Code scanning**. |
+| **CodeQL** | Enable **Code scanning** with GitHub’s [**Default setup**](https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning/configuring-default-setup-for-code-scanning) (recommended). It analyzes **Python** and **JavaScript/TypeScript** from this repo and shows results under **Security** → **Code scanning**. **Do not** turn on default setup *and* a separate “advanced” CodeQL Actions workflow that uploads SARIF — GitHub rejects the upload with *“CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled.”* If you need a custom workflow instead, disable default setup first, then add the workflow. |
 
-Repository maintainers should keep **Code scanning** and **Dependabot** enabled under **Settings → Code security and analysis**, and turn on **Private vulnerability reporting** under **Settings → Security** so the flow above works end-to-end.
+Repository maintainers should keep **Code scanning** (default setup) and **Dependabot** enabled under **Settings → Code security and analysis**, and turn on **Private vulnerability reporting** under **Settings → Security** so the flow above works end-to-end.
 
 ## Out of scope
 
