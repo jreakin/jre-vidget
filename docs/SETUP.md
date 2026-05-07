@@ -27,10 +27,31 @@ extended inactivity.
 ## Prerequisites
 
 1. A Google Cloud project with **YouTube Data API v3** enabled
-2. OAuth 2.0 credentials (type: **Desktop App**) — copy the client ID and secret
+2. OAuth 2.0 credentials (type: **Desktop app**) — copy the client ID and secret
 3. [uv](https://docs.astral.sh/uv/) installed locally for the one-time auth step
 
-## One-time OAuth flow (local)
+<a id="step-2"></a>
+
+## Step 2: Google Cloud OAuth client (YouTube uploads)
+
+Use the same credentials for the **CLI**, the **GitHub Pages setup wizard**, and **GitHub Actions** uploads.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select or create a project.
+2. **APIs & Services → Library** → search **YouTube Data API v3** → **Enable**.
+3. **APIs & Services → OAuth consent screen**:
+   - Choose **External** (typical for personal forks) or **Internal** if you use Google Workspace.
+   - Complete the required fields (app name, user support email, developer contact).
+   - **Scopes** → **Add or remove scopes** → include **`https://www.googleapis.com/auth/youtube.upload`** (uploads).
+   - While publishing status is **Testing**, add your own Google account under **Test users** so you can finish the browser consent during `vidget auth login`.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+   - Application type: **Desktop app** (required: the CLI flow redirects to `localhost`, not your GitHub Pages URL).
+   - Save the **Client ID** and **Client secret** — they map to GitHub Actions secrets `VIDGET_CLIENT_ID` and `VIDGET_CLIENT_SECRET`.
+
+If you ever add a **Web application** OAuth client that runs inside the browser on GitHub Pages, set **Authorized JavaScript origins** and **Authorized redirect URIs** to your **exact** site URL (scheme, host, path, and trailing slash must match what the app uses), for example `https://YOUR_USERNAME.github.io/jre-vidget/`. The default jre-vidget flow does **not** need a Web client for uploads; it uses a Desktop client plus local `auth login`.
+
+<a id="step-3"></a>
+
+## Step 3: One-time OAuth flow (local)
 
 Run this once on your machine to obtain a refresh token:
 
