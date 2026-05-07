@@ -65,6 +65,13 @@ uv run vidget auth login
 # → token saved to ~/.vidget/config.json
 ```
 
+If login completes but you still have no refresh token, revoke **vidget** (or your OAuth app name) under [Google Account → Third-party access](https://myaccount.google.com/permissions) and run `auth login` again — the CLI uses `prompt=consent` so Google should return a refresh token on the next consent.
+
+To **print the refresh token in the terminal** after a successful login (for pasting into GitHub Actions), either:
+
+- Run **`uv run vidget auth login --show-refresh-token`** (same browser flow; token is echoed after success), or
+- After login, run **`uv run vidget auth print-token`** (no browser; reads `~/.vidget/config.json` or `GCLOUD_REFRESH_TOKEN` / `VIDGET_REFRESH_TOKEN` from the environment). Add **`--json`** for machine-readable stdout.
+
 ### Custom OAuth callback port (`VIDGET_OAUTH_PORT`)
 
 By default the browser OAuth flow listens on **port 8080**. If that port is already in
@@ -78,7 +85,7 @@ Credentials → your OAuth 2.0 Client ID** and ensure **Authorized redirect URIs
 library uses. Invalid `VIDGET_OAUTH_PORT` values are ignored with a **WARNING** in logs
 and the default port is used.
 
-Then extract the refresh token:
+Alternatively, extract the refresh token with Python:
 
 ```bash
 python3 -c "

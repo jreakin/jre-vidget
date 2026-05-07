@@ -152,6 +152,23 @@ def publish_oauth_configured(auth: AuthConfig) -> bool:
     return _resolved_oauth_triplet(auth) is not None
 
 
+def read_client_id_merged(auth: AuthConfig) -> str | None:
+    """Resolved OAuth client id (env + ``auth``), same order as :func:`get_credentials`."""
+    return _field_from_env_chain(
+        ("GCLOUD_CLIENT_ID", "GCLOUD_AUTH_CLIENT_ID", "VIDGET_CLIENT_ID"),
+        auth.client_id,
+    )
+
+
+def read_refresh_token_merged(auth: AuthConfig) -> str | None:
+    """Resolved refresh token (env + ``auth``), same order as :func:`get_credentials`."""
+    cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
+    return _field_from_env_chain(
+        ("GCLOUD_REFRESH_TOKEN", "VIDGET_REFRESH_TOKEN"),
+        cfg_rt,
+    )
+
+
 def _oauth_login_console_prompt(port: int) -> str:
     """
     Message for ``run_local_server(authorization_prompt_message=…)``.
@@ -189,16 +206,26 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     }
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
     port = _resolve_oauth_local_server_port()
+    # ``prompt=consent`` forces the consent UI so Google returns a **refresh_token**
+    # on re-authorization (without it, repeat logins often omit the refresh token).
     creds = flow.run_local_server(
         port=port,
         authorization_prompt_message=_oauth_login_console_prompt(port),
+        prompt="consent",
     )
 
     rt = creds.refresh_token
+    if not rt:
+        raise AuthError(
+            "Google did not return a refresh token. Revoke this app's access at "
+            "https://myaccount.google.com/permissions then run login again, or confirm "
+            "your Google account is a **Test user** on an app still in **Testing** "
+            "in OAuth consent screen."
+        )
     return AuthConfig(
         client_id=client_id,
         client_secret=SecretStr(client_secret),
-        refresh_token=SecretStr(rt) if rt else None,
+        refresh_token=SecretStr(rt),
     )
 
 
