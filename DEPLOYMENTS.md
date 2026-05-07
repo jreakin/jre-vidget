@@ -19,7 +19,7 @@
 **Build → deploy pipeline:** `.github/workflows/deploy-web.yml`
 
 ```
-Push to main (web/**, docs-site/**) → build web + build Starlight → merge into site/ → push to gh-pages
+Push to main (web/**, docs-site/**, src/jre_vidget/**, pyproject, uv.lock) → uv sync + docs:python → build web + Starlight → merge → gh-pages
 ```
 
 - **Web** output: `web/dist/` (and the same files at the **root** of the `gh-pages` branch)

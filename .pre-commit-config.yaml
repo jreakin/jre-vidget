@@ -12,6 +12,13 @@ repos:
       - id: ruff-format
         files: ^src/|^tests/
 
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        # Baseline ~73% repo-wide; raise toward 80% (Abstract Data default) over time.
+        args: [--fail-under=70, -vv, src/jre_vidget]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:

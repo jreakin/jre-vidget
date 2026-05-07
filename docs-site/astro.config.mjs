@@ -14,6 +14,20 @@ export default defineConfig({
 			title: 'jre-vidget',
 			description:
 				'CLI video downloader built on yt-dlp — local replacement for iTube Studio.',
+			sidebar: [
+				{
+					label: 'Documentation',
+					items: [
+						{ label: 'Overview', link: '/' },
+						{ label: 'Setup', link: '/setup/' },
+						{ label: 'CLI overview', link: '/reference/cli/' },
+					],
+				},
+				{
+					label: 'API Reference',
+					autogenerate: { directory: 'api' },
+				},
+			],
 			social: [
 				{
 					icon: 'github',

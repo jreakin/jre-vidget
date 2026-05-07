@@ -1,0 +1,30 @@
+{
+	"$schema": "scripts/build-python-docs.mjs reads this file (paths relative to docs-site/).",
+	"searchPath": "../src",
+	"outputDir": "src/content/docs/api",
+	"modules": [
+		"jre_vidget",
+		"jre_vidget.commands",
+		"jre_vidget.auth",
+		"jre_vidget.checks",
+		"jre_vidget.cli",
+		"jre_vidget.cli_common",
+		"jre_vidget.config",
+		"jre_vidget.engine",
+		"jre_vidget.github_workflow",
+		"jre_vidget.history",
+		"jre_vidget.models",
+		"jre_vidget.publish_flow",
+		"jre_vidget.publisher",
+		"jre_vidget.ui",
+		"jre_vidget.youtube_urls",
+		"jre_vidget.commands.auth_cmd",
+		"jre_vidget.commands.batch",
+		"jre_vidget.commands.config_cmd",
+		"jre_vidget.commands.download",
+		"jre_vidget.commands.formats",
+		"jre_vidget.commands.history_cmd",
+		"jre_vidget.commands.preview",
+		"jre_vidget.commands.publish_cmd"
+	]
+}

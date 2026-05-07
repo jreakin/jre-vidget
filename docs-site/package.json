@@ -6,7 +6,8 @@
 		"dev": "astro dev",
 		"start": "astro dev",
 		"build": "astro build",
-		"preview": "astro preview"
+		"preview": "astro preview",
+		"docs:python": "node scripts/build-python-docs.mjs"
 	},
 	"dependencies": {
 		"@abstractdata/starlight-theme": "^0.3.1",

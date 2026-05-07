@@ -10,6 +10,16 @@ bun install
 bun run dev
 ```
 
+Regenerate **API Reference** pages from `src/jre_vidget` (requires repo-root `uv sync --extra dev`):
+
+```bash
+cd /path/to/jre-vidget
+uv sync --extra dev
+cd docs-site && bun run docs:python
+```
+
+Configuration: [`scripts/python-autodoc.json`](scripts/python-autodoc.json) and [`scripts/README.md`](scripts/README.md).
+
 Build static output to `dist/`:
 
 ```bash
