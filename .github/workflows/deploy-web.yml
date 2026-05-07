@@ -25,9 +25,10 @@ jobs:
         with:
           enable-cache: true
 
+      # Astro 6+ requires Node >=22.12 (see astro package engines); keep in sync with docs-site build.
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
@@ -69,7 +70,8 @@ jobs:
           # Project Pages: app is at /{repo}/, docs at /{repo}/docs/
           ASTRO_BASE: /${{ github.event.repository.name }}/docs/
           NODE_OPTIONS: --max-old-space-size=4096
-        run: bun run build
+        # Run Astro with Node on PATH (Astro 6 enforces supported Node; avoids Bun as the JS host for the CLI).
+        run: node ./node_modules/astro/bin/astro.mjs build
         working-directory: docs-site
 
       - name: Merge web + docs for Pages

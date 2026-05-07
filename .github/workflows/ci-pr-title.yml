@@ -14,16 +14,17 @@ jobs:
           TITLE="${{ github.event.pull_request.title }}"
           PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
 
+          echo "Checking PR title: $TITLE"
+
           if echo "$TITLE" | grep -qE "$PATTERN"; then
             echo "✅ PR title is valid: $TITLE"
             exit 0
           fi
 
           echo ""
-          echo "❌ PR title does not follow conventional commit format."
-          echo ""
-          echo "   Got:      $TITLE"
-          echo "   Expected: <type>(<scope>): <description>"
+          echo "❌ Invalid PR title: $TITLE"
+          echo "   Expected format: <type>(<scope>)?: <description>  (scope optional; use ! for breaking changes)"
+          echo "   Example: fix(engine): handle None return from yt-dlp"
           echo ""
           echo "   Valid types:"
           echo "     feat      — new feature (bumps minor version)"

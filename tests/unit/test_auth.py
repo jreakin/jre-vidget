@@ -182,14 +182,18 @@ class TestGetCredentials:
 
         assert creds is mock_creds
 
-    def test_raises_auth_error_when_no_refresh_token(self) -> None:
+    def test_raises_auth_error_when_no_refresh_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         auth = AuthConfig(client_id="cid", client_secret=SecretStr("csecret"))
-        with pytest.raises(AuthError, match="Run 'vidget auth login'"):
+        with pytest.raises(AuthError, match=r"Run 'vidget auth login'"):
             get_credentials(auth)
 
-    def test_raises_auth_error_when_no_credentials_at_all(self) -> None:
+    def test_raises_auth_error_when_no_credentials_at_all(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         auth = AuthConfig()
-        with pytest.raises(AuthError, match="Run 'vidget auth login'"):
+        with pytest.raises(AuthError, match=r"Run 'vidget auth login'"):
             get_credentials(auth)
 
     def test_refreshes_expired_token(self) -> None:
