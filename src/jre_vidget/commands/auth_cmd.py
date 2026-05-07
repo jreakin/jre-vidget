@@ -24,6 +24,11 @@ def auth_login() -> None:
         hide_input=True,
     )
 
+    cc.console.print(
+        "[dim]Opening Google sign-in in your default browser when possible. "
+        "The terminal cannot navigate itself — after you approve access in the browser, "
+        "Google sends that tab to localhost to complete the flow.[/dim]"
+    )
     try:
         auth_config = cc.auth.login_browser(client_id, client_secret)
     except KeyboardInterrupt:

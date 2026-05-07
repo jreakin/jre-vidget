@@ -70,6 +70,31 @@ class AuthError(Exception):
     """Raised when credentials are missing, invalid, or cannot be refreshed."""
 
 
+def _is_github_actions() -> bool:
+    return os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+
+
+def _hint_oauth_connect() -> str:
+    """Human hint for missing YouTube OAuth (local vs GitHub Actions)."""
+    if _is_github_actions():
+        return (
+            "Configure repo secrets (e.g. GCLOUD_CLIENT_ID, GCLOUD_CLIENT_SECRET, "
+            "GCLOUD_REFRESH_TOKEN or VIDGET_* equivalents). See docs/SETUP.md."
+        )
+    return "Run 'vidget auth login' to connect your YouTube account."
+
+
+def _hint_oauth_reconnect() -> str:
+    """Human hint after refresh_token exchange fails (local vs GitHub Actions)."""
+    if _is_github_actions():
+        return (
+            "Run 'vidget auth login' locally, then update GCLOUD_REFRESH_TOKEN or "
+            "VIDGET_REFRESH_TOKEN; client id and secret must be the same OAuth client "
+            "that issued the token. See docs/SETUP.md."
+        )
+    return "Run 'vidget auth login' to reconnect."
+
+
 def _strip_nonempty(s: str | None) -> str | None:
     if s is None:
         return None
@@ -127,6 +152,22 @@ def publish_oauth_configured(auth: AuthConfig) -> bool:
     return _resolved_oauth_triplet(auth) is not None
 
 
+def _oauth_login_console_prompt(port: int) -> str:
+    """
+    Message for ``run_local_server(authorization_prompt_message=…)``.
+
+    The Google library substitutes ``{url}``. We clarify that the **browser tab**
+    is redirected to localhost after consent (the terminal never navigates).
+    """
+    return (
+        f"A browser tab should open automatically for Google sign-in. "
+        f"After you approve access, Google redirects that tab to "
+        f"http://localhost:{port}/ to finish — keep this terminal open.\n"
+        "If no tab opened (common in some IDE terminals), paste this URL into a browser:\n"
+        "{url}\n"
+    )
+
+
 def login_browser(client_id: str, client_secret: str) -> AuthConfig:
     """
     Run the browser-based OAuth2 flow on localhost (default port
@@ -147,7 +188,11 @@ def login_browser(client_id: str, client_secret: str) -> AuthConfig:
         }
     }
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=_resolve_oauth_local_server_port())
+    port = _resolve_oauth_local_server_port()
+    creds = flow.run_local_server(
+        port=port,
+        authorization_prompt_message=_oauth_login_console_prompt(port),
+    )
 
     rt = creds.refresh_token
     return AuthConfig(
@@ -172,9 +217,7 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     """
     triplet = _resolved_oauth_triplet(auth)
     if triplet is None:
-        raise AuthError(
-            "Not authenticated. Run 'vidget auth login' to connect your YouTube account."
-        )
+        raise AuthError(f"Not authenticated. {_hint_oauth_connect()}")
     client_id, client_secret, refresh_token = triplet
 
     creds = Credentials(
@@ -192,7 +235,7 @@ def get_credentials(auth: AuthConfig) -> Credentials:
         try:
             creds.refresh(Request())
         except RefreshError as e:
-            raise AuthError("YouTube session expired. Run 'vidget auth login' to reconnect.") from e
+            raise AuthError(f"YouTube session expired. {_hint_oauth_reconnect()}") from e
 
     return creds
 

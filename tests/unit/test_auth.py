@@ -19,6 +19,15 @@ from jre_vidget.config import load_app_config
 from jre_vidget.models import AppConfig, AuthConfig
 
 
+def _assert_run_local_server_port(mock_flow: MagicMock, port: int) -> None:
+    mock_flow.run_local_server.assert_called_once()
+    kw = mock_flow.run_local_server.call_args.kwargs
+    assert kw["port"] == port
+    msg = kw["authorization_prompt_message"]
+    assert "{url}" in msg
+    assert f"localhost:{port}" in msg
+
+
 class TestLoginBrowser:
     def test_returns_auth_config_with_refresh_token(self) -> None:
         mock_creds = MagicMock()
@@ -65,7 +74,7 @@ class TestLoginBrowser:
 
             login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+        _assert_run_local_server_port(mock_flow, OAUTH_LOCAL_SERVER_PORT)
 
     def test_run_local_server_respects_vidget_oauth_port(
         self, monkeypatch: pytest.MonkeyPatch
@@ -81,7 +90,7 @@ class TestLoginBrowser:
 
             login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=8765)
+        _assert_run_local_server_port(mock_flow, 8765)
 
     def test_oauth_port_non_numeric_env_falls_back_with_warning(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -98,7 +107,7 @@ class TestLoginBrowser:
             with caplog.at_level(logging.WARNING, logger="jre_vidget.auth"):
                 login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+        _assert_run_local_server_port(mock_flow, OAUTH_LOCAL_SERVER_PORT)
         assert "not a valid integer" in caplog.text
 
     @pytest.mark.parametrize("bad", ("0", "65536", "-1"))
@@ -120,7 +129,7 @@ class TestLoginBrowser:
             with caplog.at_level(logging.WARNING, logger="jre_vidget.auth"):
                 login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=OAUTH_LOCAL_SERVER_PORT)
+        _assert_run_local_server_port(mock_flow, OAUTH_LOCAL_SERVER_PORT)
         assert "outside 1–65535" in caplog.text
 
     def test_oauth_port_valid_env_logs_info(
@@ -138,7 +147,7 @@ class TestLoginBrowser:
             with caplog.at_level(logging.INFO, logger="jre_vidget.auth"):
                 login_browser("cid", "csecret")
 
-        mock_flow.run_local_server.assert_called_once_with(port=9090)
+        _assert_run_local_server_port(mock_flow, 9090)
         assert "9090" in caplog.text and "VIDGET_OAUTH_PORT" in caplog.text
 
 
@@ -208,6 +217,35 @@ class TestGetCredentials:
             mock_creds_cls.return_value = mock_creds
             with pytest.raises(AuthError, match="session expired"):
                 get_credentials(auth)
+
+    def test_refresh_failure_hint_in_github_actions(self, monkeypatch) -> None:
+        from google.auth.exceptions import RefreshError
+
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        auth = AuthConfig(
+            client_id="cid",
+            client_secret=SecretStr("csecret"),
+            refresh_token=SecretStr("rt"),
+        )
+        mock_creds = MagicMock()
+        mock_creds.valid = False
+        mock_creds.expired = True
+        mock_creds.refresh_token = "rt"
+        mock_creds.refresh.side_effect = RefreshError("invalid_grant")
+
+        with (
+            patch("jre_vidget.auth.Credentials") as mock_creds_cls,
+            patch("jre_vidget.auth.Request"),
+        ):
+            mock_creds_cls.return_value = mock_creds
+            with pytest.raises(AuthError, match="GCLOUD_REFRESH_TOKEN"):
+                get_credentials(auth)
+
+    def test_missing_credentials_hint_in_github_actions(self, monkeypatch) -> None:
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        auth = AuthConfig()
+        with pytest.raises(AuthError, match="repo secrets"):
+            get_credentials(auth)
 
     def test_gcloud_client_id_precedence(self, monkeypatch) -> None:
         """GCLOUD_CLIENT_ID wins over GCLOUD_AUTH_CLIENT_ID and VIDGET_CLIENT_ID."""
