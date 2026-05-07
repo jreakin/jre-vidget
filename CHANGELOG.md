@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/jreakin/jre-vidget/compare/v0.1.4...v0.1.5) (2026-05-07)
+
+
+### Documentation
+
+* remove obsolete Notion full-implementation plan file ([23c98e6](https://github.com/jreakin/jre-vidget/commit/23c98e6e4454d70231307d0eac81c6216c0644c4))
+* remove obsolete Notion full-implementation plan file ([d67db37](https://github.com/jreakin/jre-vidget/commit/d67db372fb7145495f8d5ab5df5ba01a61f9fd59))
+
 ## [0.1.4](https://github.com/jreakin/jre-vidget/compare/v0.1.3...v0.1.4) (2026-05-07)
 
 
