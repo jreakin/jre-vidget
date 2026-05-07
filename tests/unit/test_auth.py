@@ -14,6 +14,8 @@ from jre_vidget.auth import (
     get_credentials,
     login_browser,
     logout,
+    read_client_id_merged,
+    read_refresh_token_merged,
 )
 from jre_vidget.config import load_app_config
 from jre_vidget.models import AppConfig, AuthConfig
@@ -23,6 +25,7 @@ def _assert_run_local_server_port(mock_flow: MagicMock, port: int) -> None:
     mock_flow.run_local_server.assert_called_once()
     kw = mock_flow.run_local_server.call_args.kwargs
     assert kw["port"] == port
+    assert kw.get("prompt") == "consent"
     msg = kw["authorization_prompt_message"]
     assert "{url}" in msg
     assert f"localhost:{port}" in msg
@@ -46,6 +49,18 @@ class TestLoginBrowser:
         assert result.client_secret.get_secret_value() == "my-client-secret"
         assert result.refresh_token is not None
         assert result.refresh_token.get_secret_value() == "rt_abc123"
+
+    def test_login_raises_auth_error_when_no_refresh_token(self) -> None:
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = None
+
+        with patch("jre_vidget.auth.InstalledAppFlow") as mock_flow_cls:
+            mock_flow = MagicMock()
+            mock_flow.run_local_server.return_value = mock_creds
+            mock_flow_cls.from_client_config.return_value = mock_flow
+
+            with pytest.raises(AuthError, match="Google did not return a refresh token"):
+                login_browser("cid", "csecret")
 
     def test_flow_called_with_correct_scope(self) -> None:
         mock_creds = MagicMock()
@@ -338,6 +353,23 @@ class TestGetCredentials:
         assert kwargs["refresh_token"] == "env-rt"
         assert kwargs["client_id"] == "env-cid"
         assert kwargs["client_secret"] == "env-csecret"
+
+
+class TestReadMergedHelpers:
+    def test_read_refresh_token_prefers_gcloud_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("GCLOUD_REFRESH_TOKEN", "g_rt")
+        monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "v_rt")
+        auth = AuthConfig(refresh_token=SecretStr("cfg_rt"))
+        assert read_refresh_token_merged(auth) == "g_rt"
+
+    def test_read_refresh_token_config_fallback(self) -> None:
+        auth = AuthConfig(refresh_token=SecretStr("cfg_rt"))
+        assert read_refresh_token_merged(auth) == "cfg_rt"
+
+    def test_read_client_id_merged_env_order(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("GCLOUD_CLIENT_ID", "a")
+        monkeypatch.setenv("GCLOUD_AUTH_CLIENT_ID", "b")
+        assert read_client_id_merged(AuthConfig(client_id="c")) == "a"
 
 
 class TestLogout:

@@ -65,7 +65,7 @@ def main(
 ) -> None:
     """Global options; runs before every subcommand."""
     ensure_cli_logging()
-    if ctx.invoked_subcommand not in ("config", "history"):
+    if ctx.invoked_subcommand not in ("config", "history", "auth"):
         checks.check_dependencies()
 
 
@@ -80,6 +80,7 @@ config_app.command("set")(config_cmd.config_set)
 config_app.command("reset")(config_cmd.config_reset)
 
 auth_app.command("login")(auth_cmd.auth_login)
+auth_app.command("print-token")(auth_cmd.auth_print_token)
 auth_app.command("status")(auth_cmd.auth_status)
 auth_app.command("logout")(auth_cmd.auth_logout)
 
