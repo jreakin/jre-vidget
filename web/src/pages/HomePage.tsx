@@ -9,9 +9,21 @@ import { StatusCard } from "../components/StatusCard";
 import { TopBar } from "../components/TopBar";
 import { UploadForm } from "../components/UploadForm";
 import { usePAT } from "../hooks/usePAT";
+import {
+  GCLOUD_CLIENT_ID_KEYS,
+  GCLOUD_CLIENT_SECRET_KEYS,
+  GCLOUD_REFRESH_TOKEN_KEYS,
+  hasAnySecret,
+} from "../lib/google-oauth-secrets";
 import type { UploadRecord } from "../types";
 
-const REQUIRED = ["VIDGET_CLIENT_ID", "VIDGET_CLIENT_SECRET", "VIDGET_REFRESH_TOKEN"] as const;
+function oauthSecretsComplete(names: string[]): boolean {
+  return (
+    hasAnySecret(GCLOUD_CLIENT_ID_KEYS, names) &&
+    hasAnySecret(GCLOUD_CLIENT_SECRET_KEYS, names) &&
+    hasAnySecret(GCLOUD_REFRESH_TOKEN_KEYS, names)
+  );
+}
 
 export function HomePage() {
   const { pat, setPAT, clearPAT } = usePAT();
@@ -40,7 +52,7 @@ export function HomePage() {
 
   useEffect(() => {
     if (!secretNames) return;
-    const allPresent = REQUIRED.every((s) => secretNames.includes(s));
+    const allPresent = oauthSecretsComplete(secretNames);
     if (allPresent) {
       queueMicrotask(() => {
         markSetupComplete();

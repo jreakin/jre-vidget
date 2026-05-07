@@ -9,7 +9,7 @@ const githubApi = vi.hoisted(() => ({
   fetchUploads: vi.fn(async () => []),
   fetchLatestRun: vi.fn(async () => null),
   listSecretNames: vi.fn(async () => [
-    "VIDGET_CLIENT_ID",
+    "GCLOUD_CLIENT_ID",
     "VIDGET_CLIENT_SECRET",
     "VIDGET_REFRESH_TOKEN",
   ]),

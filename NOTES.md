@@ -23,9 +23,10 @@ YouTube Data API v3 write operations (uploads) require three credentials:
 
 | Variable | Source |
 |----------|--------|
-| `VIDGET_CLIENT_ID` | Google Cloud Console → OAuth 2.0 Desktop App client ID |
-| `VIDGET_CLIENT_SECRET` | Google Cloud Console → OAuth 2.0 Desktop App client secret |
-| `VIDGET_REFRESH_TOKEN` | Run `vidget auth login` locally; copy from `~/.vidget/config.json` |
+| `GCLOUD_CLIENT_ID` | Google Cloud Console → OAuth 2.0 Desktop App client ID (primary) |
+| `GCLOUD_AUTH_CLIENT_ID` | Optional second client-ID secret (same app if you use two slots) |
+| `GCLOUD_CLIENT_SECRET` / `VIDGET_CLIENT_SECRET` | OAuth client secret |
+| `GCLOUD_REFRESH_TOKEN` / `VIDGET_REFRESH_TOKEN` | Run `vidget auth login` locally; copy from `~/.vidget/config.json` |
 
 These are stored as GitHub Actions secrets. See `docs/SETUP.md` for step-by-step instructions.
 `VIDGET_REPORT_TOKEN` is a separate fine-grained GitHub token with `issues: write` only on

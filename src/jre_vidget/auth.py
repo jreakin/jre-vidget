@@ -77,16 +77,21 @@ def _strip_nonempty(s: str | None) -> str | None:
     return t or None
 
 
-def _env_then_cfg(env_raw: str | None, cfg: str | None) -> str | None:
+def _field_from_env_chain(names: tuple[str, ...], cfg: str | None) -> str | None:
     """
-    Prefer a **non-blank** value from the environment when that variable is **defined**.
+    First **non-blank** value among defined environment variables, else ``cfg``.
 
-    If ``env_raw`` is ``None`` (unset), use ``cfg``. If the variable is set but empty or
-    whitespace-only, fall back to ``cfg`` so blank env values do not override saved
-    OAuth fields from :class:`AuthConfig` (e.g. empty CI secrets with a local config).
+    Used for Google OAuth so newer ``GCLOUD_*`` GitHub secret names take precedence
+    over legacy ``VIDGET_*`` names. Blank defined vars are skipped so a later key
+    or saved config can supply the value.
     """
-    if env_raw is not None:
-        t = env_raw.strip()
+    for name in names:
+        if name not in os.environ:
+            continue
+        raw = os.environ.get(name)
+        if raw is None:
+            continue
+        t = raw.strip()
         if t:
             return t
     return _strip_nonempty(cfg)
@@ -98,11 +103,20 @@ def _resolved_oauth_triplet(auth: AuthConfig) -> tuple[str, str, str] | None:
 
     Returns ``None`` if any of client id, client secret, or refresh token is missing/blank.
     """
-    client_id = _env_then_cfg(os.getenv("VIDGET_CLIENT_ID"), auth.client_id)
+    client_id = _field_from_env_chain(
+        ("GCLOUD_CLIENT_ID", "GCLOUD_AUTH_CLIENT_ID", "VIDGET_CLIENT_ID"),
+        auth.client_id,
+    )
     cfg_secret = auth.client_secret.get_secret_value() if auth.client_secret else None
-    client_secret = _env_then_cfg(os.getenv("VIDGET_CLIENT_SECRET"), cfg_secret)
+    client_secret = _field_from_env_chain(
+        ("GCLOUD_CLIENT_SECRET", "VIDGET_CLIENT_SECRET"),
+        cfg_secret,
+    )
     cfg_rt = auth.refresh_token.get_secret_value() if auth.refresh_token else None
-    refresh_token = _env_then_cfg(os.getenv("VIDGET_REFRESH_TOKEN"), cfg_rt)
+    refresh_token = _field_from_env_chain(
+        ("GCLOUD_REFRESH_TOKEN", "VIDGET_REFRESH_TOKEN"),
+        cfg_rt,
+    )
     if not client_id or not client_secret or not refresh_token:
         return None
     return client_id, client_secret, refresh_token
@@ -148,9 +162,11 @@ def get_credentials(auth: AuthConfig) -> Credentials:
     Return valid, refreshed Google credentials.
 
     Reads client_id, client_secret, and refresh_token from auth, merged with
-    ``VIDGET_CLIENT_ID``, ``VIDGET_CLIENT_SECRET``, and ``VIDGET_REFRESH_TOKEN``.
-    For each field, a **non-blank** env value wins; if the env var is set but empty
-    or whitespace-only, the saved config value is used instead.
+    environment variables. **Client id** (first non-blank wins, in order):
+    ``GCLOUD_CLIENT_ID``, ``GCLOUD_AUTH_CLIENT_ID``, ``VIDGET_CLIENT_ID``.
+    **Client secret:** ``GCLOUD_CLIENT_SECRET``, ``VIDGET_CLIENT_SECRET``.
+    **Refresh token:** ``GCLOUD_REFRESH_TOKEN``, ``VIDGET_REFRESH_TOKEN``.
+    Blank defined env values are skipped in favor of later keys or saved config.
 
     Raises AuthError if credentials are missing or refresh fails.
     """

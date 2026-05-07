@@ -75,7 +75,7 @@ workflow_dispatch (from web UI) → publish.yml
   → append to uploads.json → push to main
 ```
 
-Required secrets: `VIDGET_CLIENT_ID`, `VIDGET_CLIENT_SECRET`, `VIDGET_REFRESH_TOKEN`
+Required secrets: Google OAuth client id (`GCLOUD_CLIENT_ID` and/or `GCLOUD_AUTH_CLIENT_ID`, or legacy `VIDGET_CLIENT_ID`), client secret (`GCLOUD_CLIENT_SECRET` or `VIDGET_CLIENT_SECRET`), refresh token (`GCLOUD_REFRESH_TOKEN` or `VIDGET_REFRESH_TOKEN`) — see `docs/SETUP.md`.
 Optional: `VIDGET_REPORT_TOKEN` (auto-reports failures to upstream repo issues)
 
 ---

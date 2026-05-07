@@ -160,7 +160,7 @@ uv run pytest tests/unit/test_models.py::test_quality_ydl_format -v -s
 ## GitHub Actions publish (`publish.yml`)
 
 The workflow runs `vidget auth status --strict` before download so missing or blank
-`VIDGET_CLIENT_ID`, `VIDGET_CLIENT_SECRET`, or `VIDGET_REFRESH_TOKEN` fails fast (exit code 3)
+Missing Google OAuth env/secrets (`GCLOUD_*` / `VIDGET_*` client id, secret, refresh token) fails fast (exit code 3)
 instead of halfway through an upload.
 
 **What `--strict` does not do:** it does **not** call Google’s token endpoint. It only

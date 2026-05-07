@@ -18,10 +18,10 @@ A self-hosted video downloader and YouTube publisher. Fork this repo, configure 
 
 ### YouTube / Google OAuth (web UI)
 
-The Pages app does **not** complete Google sign-in inside the static site. YouTube uploads run in **GitHub Actions**, which read `VIDGET_CLIENT_ID`, `VIDGET_CLIENT_SECRET`, and `VIDGET_REFRESH_TOKEN` from repository secrets (the in-browser setup wizard can write those secrets if your GitHub PAT allows it).
+The Pages app does **not** complete Google sign-in inside the static site. YouTube uploads run in **GitHub Actions**, which read Google OAuth values from repository secrets (for example `GCLOUD_CLIENT_ID`, optional `GCLOUD_AUTH_CLIENT_ID`, plus client secret and refresh token — see [docs/SETUP.md](docs/SETUP.md); legacy `VIDGET_*` names still work).
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), enable **YouTube Data API v3**, finish the **OAuth consent screen**, then create an **OAuth 2.0 Client ID** with application type **Desktop app** (this matches `vidget auth login`, which uses a localhost redirect).
-2. On your computer, run `uv run vidget auth login` once, then copy the refresh token from `~/.vidget/config.json` into the secret `VIDGET_REFRESH_TOKEN` (or paste it in the setup wizard).
+2. On your computer, run `uv run vidget auth login` once, then copy the refresh token from `~/.vidget/config.json` into the matching GitHub secret (`GCLOUD_REFRESH_TOKEN` or `VIDGET_REFRESH_TOKEN`, or paste it in the setup wizard).
 
 Full walkthrough (scopes, test users, optional `VIDGET_OAUTH_PORT`, and GitHub secret names): **[docs/SETUP.md](docs/SETUP.md)** — [Step 2: Google Cloud OAuth client](docs/SETUP.md#step-2) and [Step 3: Refresh token](docs/SETUP.md#step-3).
 
