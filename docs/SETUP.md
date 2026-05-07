@@ -7,9 +7,9 @@ OAuth 2.0 for any write operation (uploads, metadata updates). Think of it this 
 
 | Credential | What it represents |
 |------------|--------------------|
-| `VIDGET_CLIENT_ID` | Which Google Cloud app is making the request |
-| `VIDGET_CLIENT_SECRET` | Proof that you own that app |
-| `VIDGET_REFRESH_TOKEN` | Proof that a YouTube account authorized that app to upload |
+| `GCLOUD_CLIENT_ID` (or `GCLOUD_AUTH_CLIENT_ID`, or legacy `VIDGET_CLIENT_ID`) | Which Google Cloud OAuth client is making the request |
+| `GCLOUD_CLIENT_SECRET` (or legacy `VIDGET_CLIENT_SECRET`) | Proof that you own that OAuth client |
+| `GCLOUD_REFRESH_TOKEN` (or legacy `VIDGET_REFRESH_TOKEN`) | Proof that a YouTube account authorized that app to upload |
 
 All three are required by Google — there's no "just give me an upload token" shortcut.
 
@@ -45,7 +45,7 @@ Use the same credentials for the **CLI**, the **GitHub Pages setup wizard**, and
    - While publishing status is **Testing**, add your own Google account under **Test users** so you can finish the browser consent during `vidget auth login`.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
    - Application type: **Desktop app** (required: the CLI flow redirects to `localhost`, not your GitHub Pages URL).
-   - Save the **Client ID** and **Client secret** — they map to GitHub Actions secrets `VIDGET_CLIENT_ID` and `VIDGET_CLIENT_SECRET`.
+   - Save the **Client ID** and **Client secret** — store them as GitHub Actions secrets `GCLOUD_CLIENT_ID` (primary client id) and `VIDGET_CLIENT_SECRET` (or `GCLOUD_CLIENT_SECRET`). You may also set optional `GCLOUD_AUTH_CLIENT_ID` if you use a second client-id slot.
 
 If you ever add a **Web application** OAuth client that runs inside the browser on GitHub Pages, set **Authorized JavaScript origins** and **Authorized redirect URIs** to your **exact** site URL (scheme, host, path, and trailing slash must match what the app uses), for example `https://YOUR_USERNAME.github.io/jre-vidget/`. The default jre-vidget flow does **not** need a Web client for uploads; it uses a Desktop client plus local `auth login`.
 
@@ -84,9 +84,9 @@ Then extract the refresh token:
 python3 -c "
 import json, pathlib
 cfg = json.loads(pathlib.Path.home().joinpath('.vidget/config.json').read_text())
-print('VIDGET_CLIENT_ID    =', cfg['auth']['client_id'])
-print('VIDGET_CLIENT_SECRET=', cfg['auth']['client_secret'])
-print('VIDGET_REFRESH_TOKEN=', cfg['auth']['refresh_token'])
+print('GCLOUD_CLIENT_ID     =', cfg['auth']['client_id'])
+print('VIDGET_CLIENT_SECRET =', cfg['auth']['client_secret'])
+print('VIDGET_REFRESH_TOKEN =', cfg['auth']['refresh_token'])
 "
 ```
 
@@ -95,12 +95,13 @@ print('VIDGET_REFRESH_TOKEN=', cfg['auth']['refresh_token'])
 Add these four secrets to your repo
 (**Settings → Secrets and variables → Actions → New repository secret**):
 
-| Secret name            | Value                            |
-|------------------------|----------------------------------|
-| `VIDGET_CLIENT_ID`     | From Google Cloud Console        |
-| `VIDGET_CLIENT_SECRET` | From Google Cloud Console        |
-| `VIDGET_REFRESH_TOKEN` | From `~/.vidget/config.json`     |
-| `VIDGET_REPORT_TOKEN`  | Optional — see below               |
+| Secret name | Value |
+|-------------|-------|
+| `GCLOUD_CLIENT_ID` | Google OAuth **Client ID** (primary; see step 2) |
+| `GCLOUD_AUTH_CLIENT_ID` | *(Optional)* Second client-id secret if you use two slots |
+| `GCLOUD_CLIENT_SECRET` / `VIDGET_CLIENT_SECRET` | OAuth **Client secret** (either name) |
+| `GCLOUD_REFRESH_TOKEN` / `VIDGET_REFRESH_TOKEN` | Refresh token from `~/.vidget/config.json` (either name) |
+| `VIDGET_REPORT_TOKEN` | Optional — see below |
 
 ### Creating the `VIDGET_REPORT_TOKEN`
 
@@ -158,4 +159,4 @@ Add these under **Settings → Secrets and variables → Actions → Variables**
 ## Refreshing an expired token
 
 If you see `YouTube session expired` in a workflow run, repeat the
-one-time OAuth flow above and update the `VIDGET_REFRESH_TOKEN` secret.
+one-time OAuth flow above and update the `GCLOUD_REFRESH_TOKEN` or `VIDGET_REFRESH_TOKEN` secret.

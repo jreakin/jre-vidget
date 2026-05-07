@@ -67,8 +67,11 @@ set_secret() {
 # Required secrets
 # ---------------------------------------------------------------------------
 echo "Required secrets:"
-set_secret "VIDGET_CLIENT_ID" \
-  "Google OAuth Client ID. See docs/SETUP.md step 2."
+set_secret "GCLOUD_CLIENT_ID" \
+  "Google OAuth Client ID (primary). See docs/SETUP.md step 2."
+
+set_secret "GCLOUD_AUTH_CLIENT_ID" \
+  "Optional second Client ID slot (same value as GCLOUD_CLIENT_ID if you only use one OAuth client)."
 
 set_secret "VIDGET_CLIENT_SECRET" \
   "Google OAuth Client Secret. See docs/SETUP.md step 2."

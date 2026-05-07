@@ -209,6 +209,40 @@ class TestGetCredentials:
             with pytest.raises(AuthError, match="session expired"):
                 get_credentials(auth)
 
+    def test_gcloud_client_id_precedence(self, monkeypatch) -> None:
+        """GCLOUD_CLIENT_ID wins over GCLOUD_AUTH_CLIENT_ID and VIDGET_CLIENT_ID."""
+        monkeypatch.setenv("GCLOUD_CLIENT_ID", "primary-id")
+        monkeypatch.setenv("GCLOUD_AUTH_CLIENT_ID", "auth-id")
+        monkeypatch.setenv("VIDGET_CLIENT_ID", "legacy-id")
+        monkeypatch.setenv("VIDGET_CLIENT_SECRET", "sec")
+        monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "rt")
+        auth = AuthConfig()
+        mock_creds = MagicMock()
+        mock_creds.valid = True
+
+        with patch("jre_vidget.auth.Credentials") as mock_creds_cls:
+            mock_creds_cls.return_value = mock_creds
+            get_credentials(auth)
+
+        _, kwargs = mock_creds_cls.call_args
+        assert kwargs["client_id"] == "primary-id"
+
+    def test_gcloud_auth_client_id_without_primary(self, monkeypatch) -> None:
+        """GCLOUD_AUTH_CLIENT_ID is used when GCLOUD_CLIENT_ID is unset."""
+        monkeypatch.delenv("GCLOUD_CLIENT_ID", raising=False)
+        monkeypatch.setenv("GCLOUD_AUTH_CLIENT_ID", "auth-only")
+        monkeypatch.setenv("VIDGET_CLIENT_SECRET", "sec")
+        monkeypatch.setenv("VIDGET_REFRESH_TOKEN", "rt")
+        mock_creds = MagicMock()
+        mock_creds.valid = True
+
+        with patch("jre_vidget.auth.Credentials") as mock_creds_cls:
+            mock_creds_cls.return_value = mock_creds
+            get_credentials(AuthConfig())
+
+        _, kwargs = mock_creds_cls.call_args
+        assert kwargs["client_id"] == "auth-only"
+
     def test_env_vars_override_config(self, monkeypatch) -> None:
         """VIDGET_CLIENT_ID / VIDGET_CLIENT_SECRET take precedence over AuthConfig."""
         monkeypatch.setenv("VIDGET_CLIENT_ID", "env-client-id")

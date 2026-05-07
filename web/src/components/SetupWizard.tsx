@@ -1,14 +1,23 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { listSecretNames, setSecret } from "../api/github";
+import {
+  CANONICAL_CLIENT_ID_SECRET,
+  CANONICAL_CLIENT_SECRET,
+  CANONICAL_REFRESH_TOKEN,
+  GCLOUD_CLIENT_ID_KEYS,
+  GCLOUD_CLIENT_SECRET_KEYS,
+  GCLOUD_REFRESH_TOKEN_KEYS,
+  hasAnySecret,
+} from "../lib/google-oauth-secrets";
 
-const REQUIRED_SECRETS = [
-  "VIDGET_CLIENT_ID",
-  "VIDGET_CLIENT_SECRET",
-  "VIDGET_REFRESH_TOKEN",
-] as const;
-
-type SecretName = (typeof REQUIRED_SECRETS)[number];
+function oauthSecretsComplete(names: string[]): boolean {
+  return (
+    hasAnySecret(GCLOUD_CLIENT_ID_KEYS, names) &&
+    hasAnySecret(GCLOUD_CLIENT_SECRET_KEYS, names) &&
+    hasAnySecret(GCLOUD_REFRESH_TOKEN_KEYS, names)
+  );
+}
 
 interface SetupWizardProps {
   pat: string;
@@ -31,30 +40,30 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
     retry: 1,
   });
 
-  const missing = REQUIRED_SECRETS.filter((s) => !existingSecrets.includes(s));
+  const oauthComplete = oauthSecretsComplete(existingSecrets);
 
   useEffect(() => {
     if (checking || checkError) return;
-    if (missing.length !== 0) return;
+    if (!oauthComplete) return;
     if (step !== "check") return;
     queueMicrotask(() => {
       onComplete();
     });
-  }, [checking, checkError, missing.length, onComplete, step]);
+  }, [checking, checkError, oauthComplete, onComplete, step]);
 
   useEffect(() => {
     if (checking || checkError) return;
-    if (missing.length === 0) return;
+    if (oauthComplete) return;
     if (step !== "check") return;
     queueMicrotask(() => {
       setStep("token-info");
     });
-  }, [checking, checkError, missing.length, step]);
+  }, [checking, checkError, oauthComplete, step]);
 
   useEffect(() => {
     if (step !== "google-creds") return;
-    const needsClientId = !existingSecrets.includes("VIDGET_CLIENT_ID");
-    const needsClientSecret = !existingSecrets.includes("VIDGET_CLIENT_SECRET");
+    const needsClientId = !hasAnySecret(GCLOUD_CLIENT_ID_KEYS, existingSecrets);
+    const needsClientSecret = !hasAnySecret(GCLOUD_CLIENT_SECRET_KEYS, existingSecrets);
     if (needsClientId || needsClientSecret) return;
     queueMicrotask(() => {
       setStep("refresh-token");
@@ -64,15 +73,15 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       setSaveError("");
-      const toSave: Array<[SecretName, string]> = [];
-      if (!existingSecrets.includes("VIDGET_CLIENT_ID")) {
-        toSave.push(["VIDGET_CLIENT_ID", clientId]);
+      const toSave: Array<[string, string]> = [];
+      if (!hasAnySecret(GCLOUD_CLIENT_ID_KEYS, existingSecrets)) {
+        toSave.push([CANONICAL_CLIENT_ID_SECRET, clientId]);
       }
-      if (!existingSecrets.includes("VIDGET_CLIENT_SECRET")) {
-        toSave.push(["VIDGET_CLIENT_SECRET", clientSecret]);
+      if (!hasAnySecret(GCLOUD_CLIENT_SECRET_KEYS, existingSecrets)) {
+        toSave.push([CANONICAL_CLIENT_SECRET, clientSecret]);
       }
-      if (!existingSecrets.includes("VIDGET_REFRESH_TOKEN")) {
-        toSave.push(["VIDGET_REFRESH_TOKEN", refreshToken]);
+      if (!hasAnySecret(GCLOUD_REFRESH_TOKEN_KEYS, existingSecrets)) {
+        toSave.push([CANONICAL_REFRESH_TOKEN, refreshToken]);
       }
       for (const [name, value] of toSave) {
         await setSecret(pat, name, value);
@@ -89,7 +98,7 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
 
   useEffect(() => {
     if (step !== "refresh-token") return;
-    const needsRefresh = !existingSecrets.includes("VIDGET_REFRESH_TOKEN");
+    const needsRefresh = !hasAnySecret(GCLOUD_REFRESH_TOKEN_KEYS, existingSecrets);
     if (needsRefresh) return;
     if (autoRefreshSaveRef.current) return;
     autoRefreshSaveRef.current = true;
@@ -203,8 +212,8 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
   }
 
   if (step === "google-creds") {
-    const needsClientId = !existingSecrets.includes("VIDGET_CLIENT_ID");
-    const needsClientSecret = !existingSecrets.includes("VIDGET_CLIENT_SECRET");
+    const needsClientId = !hasAnySecret(GCLOUD_CLIENT_ID_KEYS, existingSecrets);
+    const needsClientSecret = !hasAnySecret(GCLOUD_CLIENT_SECRET_KEYS, existingSecrets);
     return (
       <div style={card}>
         <StepIndicator current={2} total={3} />
@@ -290,7 +299,7 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
   }
 
   if (step === "refresh-token") {
-    const needsRefresh = !existingSecrets.includes("VIDGET_REFRESH_TOKEN");
+    const needsRefresh = !hasAnySecret(GCLOUD_REFRESH_TOKEN_KEYS, existingSecrets);
     if (!needsRefresh) {
       return (
         <div style={card}>
@@ -336,7 +345,7 @@ export function SetupWizard({ pat, onComplete }: SetupWizardProps) {
             # Run this once on your machine:
           </div>
           <div>
-            VIDGET_CLIENT_ID=<span style={{ color: "#185FA5" }}>&lt;your-client-id&gt;</span> \
+            GCLOUD_CLIENT_ID=<span style={{ color: "#185FA5" }}>&lt;your-client-id&gt;</span> \
           </div>
           <div>
             &nbsp;&nbsp;VIDGET_CLIENT_SECRET=<span style={{ color: "#185FA5" }}>

@@ -524,7 +524,7 @@ wheels = [
 
 [[package]]
 name = "jre-vidget"
-version = "0.1.3"
+version = "0.1.5"
 source = { editable = "." }
 dependencies = [
     { name = "ffmpeg-python" },

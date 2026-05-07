@@ -63,9 +63,28 @@ jobs:
             echo "$SECRETS" | grep -Fxq "$1" && echo "✅" || echo "❌"
           }
 
-          CLIENT_ID=$(check "VIDGET_CLIENT_ID")
-          CLIENT_SECRET=$(check "VIDGET_CLIENT_SECRET")
-          REFRESH_TOKEN=$(check "VIDGET_REFRESH_TOKEN")
+          any_client_id() {
+            echo "$SECRETS" | grep -Fxq "GCLOUD_CLIENT_ID" && return 0
+            echo "$SECRETS" | grep -Fxq "GCLOUD_AUTH_CLIENT_ID" && return 0
+            echo "$SECRETS" | grep -Fxq "VIDGET_CLIENT_ID" && return 0
+            return 1
+          }
+
+          any_client_secret() {
+            echo "$SECRETS" | grep -Fxq "GCLOUD_CLIENT_SECRET" && return 0
+            echo "$SECRETS" | grep -Fxq "VIDGET_CLIENT_SECRET" && return 0
+            return 1
+          }
+
+          any_refresh() {
+            echo "$SECRETS" | grep -Fxq "GCLOUD_REFRESH_TOKEN" && return 0
+            echo "$SECRETS" | grep -Fxq "VIDGET_REFRESH_TOKEN" && return 0
+            return 1
+          }
+
+          CLIENT_ID=$(any_client_id && echo "✅" || echo "❌")
+          CLIENT_SECRET=$(any_client_secret && echo "✅" || echo "❌")
+          REFRESH_TOKEN=$(any_refresh && echo "✅" || echo "❌")
           REPORT_TOKEN=$(check "VIDGET_REPORT_TOKEN")
 
           echo "client_id=$CLIENT_ID"           >> "$GITHUB_OUTPUT"
@@ -116,9 +135,9 @@ jobs:
 
           | Secret | Status | Purpose |
           |--------|--------|---------|
-          | \`VIDGET_CLIENT_ID\` | $CLIENT_ID | Google OAuth app identity |
-          | \`VIDGET_CLIENT_SECRET\` | $CLIENT_SECRET | Google OAuth app credential |
-          | \`VIDGET_REFRESH_TOKEN\` | $REFRESH_TOKEN | Your YouTube channel access |
+          | \`GCLOUD_CLIENT_ID\` / \`GCLOUD_AUTH_CLIENT_ID\` / \`VIDGET_CLIENT_ID\` | $CLIENT_ID | Google OAuth client id (any one) |
+          | \`GCLOUD_CLIENT_SECRET\` / \`VIDGET_CLIENT_SECRET\` | $CLIENT_SECRET | Google OAuth client secret (any one) |
+          | \`GCLOUD_REFRESH_TOKEN\` / \`VIDGET_REFRESH_TOKEN\` | $REFRESH_TOKEN | YouTube refresh token (any one) |
           | \`VIDGET_REPORT_TOKEN\` | $REPORT_TOKEN | *(optional)* Auto-report errors upstream |
 
           SUMMARY
