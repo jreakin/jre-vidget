@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/jreakin/jre-vidget/compare/v0.1.6...v0.1.7) (2026-05-07)
+
+
+### Features
+
+* **docs:** extract heroAs component for GitHub Pages links ([#58](https://github.com/jreakin/jre-vidget/issues/58)) ([ec307e5](https://github.com/jreakin/jre-vidget/commit/ec307e5d6ba08af6ab78eaead419068f49fe416b))
+
 ## [0.1.6](https://github.com/jreakin/jre-vidget/compare/v0.1.5...v0.1.6) (2026-05-07)
 
 
