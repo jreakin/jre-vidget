@@ -33,3 +33,14 @@ updates:
       web-dependencies:
         patterns:
           - "*"
+
+  # docs-site uses Bun + bun.lock; Dependabot’s npm updater refreshes registry deps (same as npm).
+  - package-ecosystem: npm
+    directory: /docs-site
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      docs-site-dependencies:
+        patterns:
+          - "*"
