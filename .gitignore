@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
+.eggs/
 dist/
 build/
 *.egg
@@ -20,30 +21,40 @@ build/
 *.swo
 *~
 
-# Testing
+# Cursor — team rules live under .cursor/rules/ (tracked); ignore local agent state & plans
+.cursor/hooks/state/
+.cursor/plans/
+
+# GitButler (local virtual branches / UI state)
+.gitbutler/
+
+# Testing & coverage
 .coverage
+.coverage.*
+coverage.xml
+coverage.json
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+
+# Type checker (Astral ty)
+.ty_cache/
+
+# Ruff
+.ruff_cache/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Ruff
-.ruff_cache/
-
-# uv — commit the lockfile for reproducible installs
-# uv.lock
-
-# Logs
-*.log
-
-# Hypothesis database
+# Hypothesis
 .hypothesis/
 
 # Local CLI / download smoke tests
 tmp/
+
+# Default Docker Make download output (see Makefile OUTPUT)
+/downloads/
 
 # Downloaded media — never commit video/audio files
 *.mp4
@@ -61,3 +72,12 @@ tmp/
 
 # Worker dependencies
 worker/node_modules/
+
+# Local SARIF / security tool output
+*.sarif
+
+# Logs
+*.log
+
+# uv — commit the lockfile for reproducible installs
+# uv.lock
