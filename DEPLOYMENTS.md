@@ -22,12 +22,12 @@ Push to main (web/**) → npm ci + npm run build → push dist/ to gh-pages bran
 ```
 
 - Output: `web/dist/` (committed output + gh-pages deployment)
-- Env vars baked at build time: `VITE_GITHUB_REPO`, `VITE_APP_TITLE` (from GitHub Actions variables)
+- Env vars baked at build time: `VITE_APP_TITLE` from Actions **variables**; `VITE_GITHUB_REPO` from the variable if set, otherwise **`github.repository`** (forks need no extra variable).
 - No server — fully static. GitHub Pages serves from the `gh-pages` branch root.
 
 **First-time setup:**
 1. Go to Settings → Pages → Source: Deploy from a branch → Branch: `gh-pages` / `/ (root)`
-2. Run the bootstrap workflow to set `VITE_GITHUB_REPO` and `VITE_APP_TITLE`
+2. Run the bootstrap workflow to set `VITE_APP_TITLE` (and optionally `VITE_GITHUB_REPO` if you want an explicit override)
 3. Trigger `deploy-web.yml` manually or push a change to `web/`
 
 **Rollback:** Force-push a previous `gh-pages` commit, or re-run a previous `deploy-web.yml` run.

@@ -149,7 +149,7 @@ Add these under **Settings → Secrets and variables → Actions → Variables**
 | Variable name    | Example value          | Purpose                  |
 |------------------|------------------------|--------------------------|
 | `VITE_APP_TITLE` | `JRE Clip Uploader`    | Title shown in the web UI |
-| `VITE_GITHUB_REPO` | `jreakin/jre-vidget` | Repo the UI targets      |
+| `VITE_GITHUB_REPO` | *(optional)* `owner/repo` | Overrides auto-detection: deploy uses `github.repository` if unset; local dev uses `git remote get-url origin` from the repo root (see `web/.env.example`). |
 
 ## Triggering a job
 
