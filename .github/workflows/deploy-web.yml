@@ -33,7 +33,8 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Keep in sync with docs-site/package.json `packageManager` for reproducible CI
+          bun-version: "1.3.3"
 
       - name: Install web dependencies
         run: npm ci
@@ -67,6 +68,7 @@ jobs:
           ASTRO_SITE: https://${{ github.repository_owner }}.github.io
           # Project Pages: app is at /{repo}/, docs at /{repo}/docs/
           ASTRO_BASE: /${{ github.event.repository.name }}/docs/
+          NODE_OPTIONS: --max-old-space-size=4096
         run: bun run build
         working-directory: docs-site
 
