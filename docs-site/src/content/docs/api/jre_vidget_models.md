@@ -27,7 +27,17 @@ hooks stay a no-op unless they match one of these values.
 class Quality(StrEnum)
 ```
 
-Supported download quality presets.
+Download resolution preset mapped to a yt-dlp ``format`` selector string.
+
+
+#### ydl\_format
+
+```python
+@property
+def ydl_format() -> str
+```
+
+yt-dlp ``format`` string passed to the downloader (merge video+audio where applicable).
 
 
 ## OutputFormat Objects
@@ -36,7 +46,17 @@ Supported download quality presets.
 class OutputFormat(StrEnum)
 ```
 
-Supported output container / codec targets.
+Output container or audio codec target after download and optional ffmpeg post-processing.
+
+
+#### is\_audio\_only
+
+```python
+@property
+def is_audio_only() -> bool
+```
+
+True when the job should extract audio only (no video container merge).
 
 
 ## VideoFormat Objects
@@ -45,7 +65,17 @@ Supported output container / codec targets.
 class VideoFormat(BaseModel)
 ```
 
-One available stream format from yt-dlp.
+Single format entry from yt-dlp metadata (resolution, codecs, rough size).
+
+
+#### display\_size
+
+```python
+@property
+def display_size() -> str
+```
+
+Human-readable size from ``filesize``, or ``unknown`` when absent.
 
 
 ## DownloadError Objects
@@ -111,7 +141,17 @@ Distinct-resolution video formats, sorted best-first by bitrate.
 class DownloadConfig(BaseModel)
 ```
 
-Options for a single download job.
+Single-URL download job: URL, quality, container/audio format, paths, retries, and concurrency cap.
+
+
+#### output\_template
+
+```python
+@property
+def output_template() -> str
+```
+
+yt-dlp ``outtmpl`` fragment (title + id + extension under ``output_dir``).
 
 
 ## AuthConfig Objects

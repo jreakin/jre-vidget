@@ -1,4 +1,7 @@
-"""Typer CLI — thin entry: mounts command groups and top-level commands."""
+"""Typer CLI entry — mounts ``download`` / ``batch`` / ``formats`` / ``preview`` / ``publish``, nested ``config`` and ``auth`` groups, and ``history``.
+
+Dependency checks run before most commands (see :func:`jre_vidget.checks.check_dependencies`).
+"""
 
 from __future__ import annotations
 

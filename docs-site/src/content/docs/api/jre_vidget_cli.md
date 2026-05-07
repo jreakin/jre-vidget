@@ -1,10 +1,12 @@
 ---
 title: jre_vidget.cli
-description: "Typer CLI — thin entry: mounts command groups and top-level commands."
+description: "Typer CLI entry — mounts download / batch / formats / preview / publish, nested config and auth groups, and history."
 ---
 
 
-Typer CLI — thin entry: mounts command groups and top-level commands.
+Typer CLI entry — mounts ``download`` / ``batch`` / ``formats`` / ``preview`` / ``publish``, nested ``config`` and ``auth`` groups, and ``history``.
+
+Dependency checks run before most commands (see `jre_vidget.checks.check_dependencies`).
 
 
 #### main

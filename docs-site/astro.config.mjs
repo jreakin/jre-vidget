@@ -24,6 +24,19 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Guides',
+					items: [
+						{
+							label: 'Download & formats',
+							link: '/guides/download/',
+						},
+						{
+							label: 'Architecture',
+							link: '/guides/architecture/',
+						},
+					],
+				},
+				{
 					label: 'API Reference',
 					autogenerate: { directory: 'api' },
 				},

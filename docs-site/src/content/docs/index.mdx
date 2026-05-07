@@ -11,6 +11,9 @@ hero:
     - text: API reference
       link: /api/jre_vidget/
       icon: document
+    - text: Download guide
+      link: /guides/download/
+      variant: minimal
     - text: CLI reference
       link: /reference/cli/
       variant: minimal
@@ -31,7 +34,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     Companion React UI on GitHub Pages for flows that suit a browser.
   </Card>
   <Card title="Python API" icon="document">
-    Auto-generated module reference from docstrings — run <code>bun run docs:python</code> in <code>docs-site/</code> after <code>uv sync --extra dev</code>.
+    Module reference generated from docstrings; see <strong>API Reference</strong> in the sidebar.
+  </Card>
+  <Card title="Architecture" icon="information">
+    How CLI, engine, UI, and publisher fit together — see <strong>Guides → Architecture</strong> in the sidebar.
   </Card>
 </CardGrid>
 

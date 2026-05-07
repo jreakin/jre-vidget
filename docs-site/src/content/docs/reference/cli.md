@@ -1,25 +1,48 @@
 ---
 title: CLI overview
-description: Typer CLI entry points for agents and humans — nouns, verbs, --json, exit codes.
+description: vidget commands, --json, headless behavior, and exit codes for humans and agents.
 sidebar:
   order: 10
 ---
 
-The `vidget` command is the primary interface. Install with `uv` from the repo root, then:
+The **`vidget`** entry point is defined in `pyproject.toml` and implemented with Typer. Install from the repo root:
 
 ```bash
 uv run vidget --help
 uv run vidget download --help
+uv run vidget config --help
+uv run vidget auth --help
 uv run vidget --version
 ```
 
-## Machine-readable output
+## Command map
 
-Commands that return structured data support **`--json`**: stdout is JSON only; progress and Rich UI go to stderr so pipelines stay clean:
+| Area | Commands |
+|------|----------|
+| Download | `download`, `batch`, `formats`, `preview` |
+| Publish | `publish` (local or workflow-assisted flows depending on options) |
+| Settings | `config show`, `config set`, `config reset` |
+| YouTube auth | `auth login`, `auth status`, `auth logout`, `auth print-token` |
+| Upload history | `history append` (used with CI / `uploads.json` workflows) |
+
+Dependency checks (`yt-dlp`, ffmpeg warning) run for commands that need downloads unless you are only using `config`, `history`, or `auth` (see `cli.py` callback).
+
+## `--json` and streams
+
+Commands that emit structured results accept **`--json`**. Contract:
+
+- **stdout** — pure JSON (pipe to `jq`, agents parse this).
+- **stderr** — progress, logs, Rich UI (humans and troubleshooting).
+
+Example:
 
 ```bash
-uv run vidget download "https://example.com/watch?v=…" --json
+uv run vidget download "https://example.com/watch?v=dQw4w9WgXcQ" --json
 ```
+
+## Non-interactive / agents
+
+In headless environments, destructive or confirm prompts are skipped or require explicit flags (see **`--yes`** / **`--no-confirm`** on relevant commands). Prefer **`--json`** for automation.
 
 ## Exit codes
 
@@ -27,10 +50,10 @@ uv run vidget download "https://example.com/watch?v=…" --json
 |------|---------|
 | `0` | Success |
 | `1` | General / unexpected failure |
-| `2` | Usage / argument error |
+| `2` | Usage / argument error (Typer) |
 | `3` | Authentication / permission |
 | `4` | Transient — safe to retry |
-| `5` | Conflict (e.g. file exists with `--no-overwrite`) |
-| `130` | Interrupted (Ctrl-C) |
+| `5` | Conflict (e.g. existing file with `--no-overwrite`) |
+| `130` | Interrupted (Ctrl+C) |
 
-See **[SKILL.md](https://github.com/jreakin/jre-vidget/blob/main/SKILL.md)** in the repository for the full agent-oriented contract (flags, JSON shapes, exit codes).
+Full machine-oriented detail (JSON shapes, edge cases) lives in **[SKILL.md](https://github.com/jreakin/jre-vidget/blob/main/SKILL.md)** in the repository.
