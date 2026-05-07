@@ -1,10 +1,12 @@
-name: Deploy web UI to GitHub Pages
+name: Deploy GitHub Pages (web + docs)
 
 on:
   push:
     branches: [main]
     paths:
       - "web/**"
+      - "docs-site/**"
+      - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
 permissions:
@@ -22,15 +24,23 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install web dependencies
         run: npm ci
         working-directory: web
+
+      - name: Install docs-site dependencies
+        run: bun install --frozen-lockfile
+        working-directory: docs-site
 
       - name: Unit tests (Vitest)
         run: npm test
         working-directory: web
 
-      - name: Build
+      - name: Build web
         env:
           VITE_APP_TITLE: ${{ vars.VITE_APP_TITLE }}
           # Prefer repo variable if set; otherwise current repo (forks work without extra vars).
@@ -38,9 +48,24 @@ jobs:
         run: npm run build
         working-directory: web
 
+      - name: Build docs (Starlight)
+        env:
+          ASTRO_SITE: https://${{ github.repository_owner }}.github.io
+          # Project Pages: app is at /{repo}/, docs at /{repo}/docs/
+          ASTRO_BASE: /${{ github.event.repository.name }}/docs/
+        run: bun run build
+        working-directory: docs-site
+
+      - name: Merge web + docs for Pages
+        run: |
+          mkdir -p site
+          cp -a web/dist/. site/
+          mkdir -p site/docs
+          cp -a docs-site/dist/. site/docs/
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: web/dist
+          publish_dir: site
           force_orphan: true

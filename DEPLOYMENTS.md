@@ -7,7 +7,8 @@
 
 | Environment | URL | Branch | Trigger |
 |-------------|-----|--------|---------|
-| **Web UI (GitHub Pages)** | `https://jreakin.github.io/jre-vidget/` | `gh-pages` | Push to `main` touching `web/**` |
+| **Web UI (GitHub Pages)** | `https://jreakin.github.io/jre-vidget/` | `gh-pages` | Push to `main` touching `web/**`, `docs-site/**`, or the deploy workflow |
+| **Docs (Starlight, same Pages site)** | `https://jreakin.github.io/jre-vidget/docs/` | `gh-pages` | Same as web — merged into one `gh-pages` deploy |
 | **Cloudflare Worker (OAuth proxy)** | `https://vidget-auth.*.workers.dev` | — | Push to `main` touching `worker/**` |
 | **Python CLI** | PyPI (not published) / local install | `main` | Manual |
 
@@ -18,17 +19,19 @@
 **Build → deploy pipeline:** `.github/workflows/deploy-web.yml`
 
 ```
-Push to main (web/**) → npm ci + npm run build → push dist/ to gh-pages branch
+Push to main (web/**, docs-site/**) → build web + build Starlight → merge into site/ → push to gh-pages
 ```
 
-- Output: `web/dist/` (committed output + gh-pages deployment)
+- **Web** output: `web/dist/` (and the same files at the **root** of the `gh-pages` branch)
+- **Docs** output: `docs-site/dist/` → copied to **`/docs/`** on Pages (e.g. `.../jre-vidget/docs/`)
+- Single deploy avoids two workflows overwriting each other on `gh-pages`
 - Env vars baked at build time: `VITE_APP_TITLE` from Actions **variables**; `VITE_GITHUB_REPO` from the variable if set, otherwise **`github.repository`** (forks need no extra variable).
 - No server — fully static. GitHub Pages serves from the `gh-pages` branch root.
 
 **First-time setup:**
 1. Go to Settings → Pages → Source: Deploy from a branch → Branch: `gh-pages` / `/ (root)`
 2. Run the bootstrap workflow to set `VITE_APP_TITLE` (and optionally `VITE_GITHUB_REPO` if you want an explicit override)
-3. Trigger `deploy-web.yml` manually or push a change to `web/`
+3. Trigger `deploy-web.yml` manually or push a change under `web/` or `docs-site/`
 
 **Rollback:** Force-push a previous `gh-pages` commit, or re-run a previous `deploy-web.yml` run.
 
