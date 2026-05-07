@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.4](https://github.com/jreakin/jre-vidget/compare/v0.1.3...v0.1.4) (2026-05-07)
+
+
+### Features
+
+* split CLI publish flow, add helpers, and tighten ([001d264](https://github.com/jreakin/jre-vidget/commit/001d264451b03d7a494b52bc8a582eb9a292417b))
+
+
+### Documentation
+
+* add YouTube/Google OAuth setup and update state ([e612787](https://github.com/jreakin/jre-vidget/commit/e61278752324d08bf788af09f373f18cdc39b72c))
+* add YouTube/Google OAuth setup and update state ([8d0ca66](https://github.com/jreakin/jre-vidget/commit/8d0ca66051824a54631c3a8fc121ab79309ff3bd))
+* add, CodeQL and Dependabot config files ([3ea66dd](https://github.com/jreakin/jre-vidget/commit/3ea66ddeec057100bedd3084483004a15b90357e))
+* add, CodeQL and Dependabot config files ([4dd52a7](https://github.com/jreakin/jre-vidget/commit/4dd52a787aa56fb715b5f620babc169065dd3eb4))
+
 ## [0.1.3](https://github.com/jreakin/jre-vidget/compare/v0.1.2...v0.1.3) (2026-05-04)
 
 
