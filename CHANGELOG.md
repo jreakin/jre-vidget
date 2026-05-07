@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.6](https://github.com/jreakin/jre-vidget/compare/v0.1.5...v0.1.6) (2026-05-07)
+
+
+### Features
+
+* **auth:** add token printing, consent prompt, and helpers ([697e1c2](https://github.com/jreakin/jre-vidget/commit/697e1c2861aebcb973186973dec1c01921fed299))
+* **auth:** add token printing, consent prompt, and helpers ([345a632](https://github.com/jreakin/jre-vidget/commit/345a6326de98888e504a86459c6f52065d258b29))
+* support GCLOUD_* secrets alongside legacy VIDGET_* ([7bd4667](https://github.com/jreakin/jre-vidget/commit/7bd466784e85663d72746c799a1cbbede8445c15))
+* support GCLOUD_* secrets alongside legacy VIDGET_* ([be8c4e1](https://github.com/jreakin/jre-vidget/commit/be8c4e107e6585168a5eacb4e7f0979edbfb3f63))
+
+
+### Documentation
+
+* **site:** make hero action links relative for GitHub Pages ([#57](https://github.com/jreakin/jre-vidget/issues/57)) ([d2c4e6d](https://github.com/jreakin/jre-vidget/commit/d2c4e6d1bf6f6f5ccb80fc6c475d933be25dd7a6))
+
 ## [0.1.5](https://github.com/jreakin/jre-vidget/compare/v0.1.4...v0.1.5) (2026-05-07)
 
 
