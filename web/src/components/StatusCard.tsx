@@ -75,6 +75,16 @@ export function StatusCard({ pat, onComplete }: StatusCardProps) {
           </div>
         </div>
       </div>
+      <progress
+        aria-label="Workflow run in progress"
+        style={{
+          display: "block",
+          width: "100%",
+          height: 8,
+          marginTop: 14,
+          accentColor: "#185FA5",
+        }}
+      />
       <style>{`@keyframes vidget-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
