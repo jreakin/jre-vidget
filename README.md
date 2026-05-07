@@ -63,6 +63,8 @@ You don't install anything. yt-dlp, ffmpeg, and Python all run on GitHub's free 
 
 Line coverage is produced on every CI run; pull requests get a comment with totals and a comparison to `main`.
 
+**Security:** vulnerability reporting, supported versions, and how **Dependabot** / **CodeQL** are used — see [SECURITY.md](SECURITY.md).
+
 ## Stack
 
 [![Typer](https://img.shields.io/pypi/v/typer?logo=python&logoColor=white&label=Typer)](https://typer.tiangolo.com/)
