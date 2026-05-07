@@ -1,0 +1,28 @@
+---
+/**
+ * Splash hero CTA row. Uses `import.meta.env.BASE_URL` so links work on GitHub Pages
+ * project sites (`/{repo}/docs/...`) even when the page URL has no trailing slash.
+ * (Frontmatter `link: /foo` and `link: foo/` both fail in different ways under `base`.)
+ */
+import { LinkButton } from '@astrojs/starlight/components';
+
+const base = import.meta.env.BASE_URL;
+const withBase = (path: string): string => {
+	const p = path.replace(/^\//, '');
+	return `${base}${p}`;
+};
+---
+
+<div
+	class="not-content hero-cta-row"
+	style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem"
+>
+	<LinkButton href={withBase('setup/')} icon="right-arrow" iconPlacement="end"
+		>Setup guide</LinkButton
+	>
+	<LinkButton href={withBase('api/jre_vidget/')} icon="document" iconPlacement="end"
+		>API reference</LinkButton
+	>
+	<LinkButton href={withBase('guides/download/')} variant="minimal">Download guide</LinkButton>
+	<LinkButton href={withBase('reference/cli/')} variant="minimal">CLI reference</LinkButton>
+</div>
