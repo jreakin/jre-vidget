@@ -73,6 +73,11 @@ tmp/
 # Worker dependencies
 worker/node_modules/
 
+# Astro Starlight docs site
+docs-site/node_modules/
+docs-site/.astro/
+docs-site/dist/
+
 # Local SARIF / security tool output
 *.sarif
 

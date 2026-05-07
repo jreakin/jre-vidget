@@ -487,6 +487,7 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 | Task | Read this skill file |
 |------|---------------------|
+| Abstract Data Starlight docs (`docs-site/`), docstrings, autodoc wiring | `.claude/skills/abstract-data-setup/SKILL.md` |
 | Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
 | Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
 | Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
@@ -502,6 +503,7 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 - Phase work is often kicked off by referencing a phase prompt (for example `@phase-4-typer-cli.md Implement`, `@phase-15-metadata-preview Implement`, or `@phase-16-setup-wizard Implement`, with or without the `.md` suffix) instead of restating full acceptance criteria.
 - After implementation batches, the user often runs the Cursor `/review` command and then asks for all findings to be fixed (`Fix all`, `Fix all of it`, or similar) before treating the work as complete.
+- After large remediation batches, the user may ask for a **final pass against Notion code-review or refactoring reports** for this project and to switch to plan mode if anything is still open.
 
 ## Learned Workspace Facts
 
@@ -511,6 +513,10 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 - Phase 15 (metadata preview and optional URL-based `publish` via GitHub Actions) is documented under `prompts/phase-15-metadata-preview/`; read `current.md` there before implementing, like earlier numbered phases.
 - Phase 16 (setup wizard) is documented under `prompts/phase-16-setup-wizard/`; read `current.md` there before implementing (the root `prompts/phase-16-setup-wizard.md` points at that folder).
 - Dev dependencies include Hypothesis (`hypothesis>=6` in `pyproject.toml`); property-based tests are used selectively where they add value.
+- **`docs-site/`** is the Astro Starlight documentation app ( **`@abstractdata/starlight-theme`** ); use **Bun** there (`bun install`, `bun run build`). CI runs **`bun run docs:python`** in that directory after **`uv sync --extra dev`** to regenerate API pages from Python docstrings.
+- **GitHub Pages:** `.github/workflows/deploy-web.yml` builds once, copies **`web/dist`** into publish root and **`docs-site/dist`** into **`docs/`**, then deploys the combined tree so a single **`gh-pages`** push serves both the Vite UI and docs (with **`ASTRO_BASE`** set to `/<repo>/docs/` for the Starlight build in CI).
+- The **web** app reads **`VITE_GITHUB_REPO`** at build time; GitHub Actions sets it from **`github.repository`** when the repo variable is unset, but **local** `web` dev/build may need **`VITE_GITHUB_REPO=owner/repo`** if tooling does not infer it.
+- YouTube / Google OAuth in this repo supports both **`GCLOUD_*`** and legacy **`VIDGET_*`** names for client id, secret, and refresh token (see **`docs/SETUP.md`** and `DEPLOYMENTS.md`); mismatched OAuth client vs token shows up as auth errors in CLI or Actions.
 
 ---
 

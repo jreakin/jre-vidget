@@ -1,0 +1,44 @@
+---
+title: jre-vidget documentation
+description: CLI video downloader built on yt-dlp — documentation hub.
+template: splash
+hero:
+  tagline: CLI video downloader built on yt-dlp — a local replacement for iTube Studio–style workflows.
+  actions:
+    - text: Setup guide
+      link: /setup/
+      icon: right-arrow
+    - text: API reference
+      link: /api/jre_vidget/
+      icon: document
+    - text: Download guide
+      link: /guides/download/
+      variant: minimal
+    - text: CLI reference
+      link: /reference/cli/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What you get
+
+<CardGrid stagger>
+  <Card title="Download" icon="download">
+    Fetch media with yt-dlp, optional ffmpeg conversion, Rich terminal UI.
+  </Card>
+  <Card title="Publish" icon="youtube">
+    Optional YouTube Data API upload with OAuth — GitHub Actions friendly.
+  </Card>
+  <Card title="Browser UI" icon="open-book">
+    Companion React UI on GitHub Pages for flows that suit a browser.
+  </Card>
+  <Card title="Python API" icon="document">
+    Module reference generated from docstrings; see <strong>API Reference</strong> in the sidebar.
+  </Card>
+  <Card title="Architecture" icon="information">
+    How CLI, engine, UI, and publisher fit together — see <strong>Guides → Architecture</strong> in the sidebar.
+  </Card>
+</CardGrid>
+
+The canonical clone/setup instructions for OAuth, secrets, and Pages live in the repository’s [`docs/SETUP.md`](https://github.com/jreakin/jre-vidget/blob/main/docs/SETUP.md).

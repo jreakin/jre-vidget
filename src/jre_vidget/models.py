@@ -39,7 +39,7 @@ class YtdlpStatus(StrEnum):
 
 
 class Quality(StrEnum):
-    """Supported download quality presets."""
+    """Download resolution preset mapped to a yt-dlp ``format`` selector string."""
 
     BEST = "best"
     P1080 = "1080p"
@@ -49,6 +49,7 @@ class Quality(StrEnum):
 
     @property
     def ydl_format(self) -> str:
+        """yt-dlp ``format`` string passed to the downloader (merge video+audio where applicable)."""
         return {
             Quality.BEST: "bestvideo+bestaudio/best",
             Quality.P1080: "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
@@ -59,7 +60,7 @@ class Quality(StrEnum):
 
 
 class OutputFormat(StrEnum):
-    """Supported output container / codec targets."""
+    """Output container or audio codec target after download and optional ffmpeg post-processing."""
 
     MP4 = "mp4"
     MKV = "mkv"
@@ -72,6 +73,7 @@ class OutputFormat(StrEnum):
 
     @property
     def is_audio_only(self) -> bool:
+        """True when the job should extract audio only (no video container merge)."""
         return self in {
             OutputFormat.MP3,
             OutputFormat.M4A,
@@ -82,7 +84,7 @@ class OutputFormat(StrEnum):
 
 
 class VideoFormat(BaseModel):
-    """One available stream format from yt-dlp."""
+    """Single format entry from yt-dlp metadata (resolution, codecs, rough size)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -101,6 +103,7 @@ class VideoFormat(BaseModel):
 
     @property
     def display_size(self) -> str:
+        """Human-readable size from ``filesize``, or ``unknown`` when absent."""
         if self.filesize is None:
             return "unknown"
         mb = self.filesize / BYTES_PER_MB
@@ -169,7 +172,7 @@ class VideoInfo(BaseModel):
 
 
 class DownloadConfig(BaseModel):
-    """Options for a single download job."""
+    """Single-URL download job: URL, quality, container/audio format, paths, retries, and concurrency cap."""
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
@@ -183,6 +186,7 @@ class DownloadConfig(BaseModel):
 
     @property
     def output_template(self) -> str:
+        """yt-dlp ``outtmpl`` fragment (title + id + extension under ``output_dir``)."""
         return str(self.output_dir / "%(title)s [%(id)s].%(ext)s")
 
 

@@ -56,7 +56,7 @@ jobs:
 
       # --strict only checks secrets are non-blank (env + empty config). Revoked or
       # invalid refresh tokens still fail on the actual upload step when vidget refreshes.
-      - name: Verify YouTube credentials (non-interactive)
+      - name: Verify YouTube credentials are present
         env:
           GCLOUD_CLIENT_ID: ${{ secrets.GCLOUD_CLIENT_ID }}
           GCLOUD_AUTH_CLIENT_ID: ${{ secrets.GCLOUD_AUTH_CLIENT_ID }}

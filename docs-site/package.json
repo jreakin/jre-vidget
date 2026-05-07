@@ -1,0 +1,21 @@
+{
+	"name": "docs-site",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "astro dev",
+		"start": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"docs:python": "node scripts/build-python-docs.mjs"
+	},
+	"dependencies": {
+		"@abstractdata/starlight-theme": "^0.3.1",
+		"@astrojs/starlight": "^0.38.5",
+		"astro": "^6.2.2"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.9.3"
+	}
+}

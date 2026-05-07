@@ -49,7 +49,7 @@ The `web/` directory is a Vite + React + TanStack (Query + Router) app, deployed
 
 ```
 main branch push → ci.yml (lint + tests)
-web/** push      → deploy-web.yml (build React app → push to gh-pages branch)
+web/**, docs-site/** → deploy-web.yml (build React + Starlight docs, merge → gh-pages)
 workflow_dispatch → publish.yml (download + YouTube upload → append uploads.json → push)
 workflow_dispatch → bootstrap.yml (scaffold secrets/variables for cloners)
 ```

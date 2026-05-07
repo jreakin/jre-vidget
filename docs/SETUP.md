@@ -165,5 +165,17 @@ Add these under **Settings → Secrets and variables → Actions → Variables**
 
 ## Refreshing an expired token
 
-If you see `YouTube session expired` in a workflow run, repeat the
-one-time OAuth flow above and update the `GCLOUD_REFRESH_TOKEN` or `VIDGET_REFRESH_TOKEN` secret.
+If a workflow fails with `YouTube session expired`, the stored refresh token is no longer
+valid (revoked, rotated, or issued for a different OAuth client). Run the local OAuth flow
+again using the **same** OAuth client ID and secret that are stored in GitHub Actions, then
+replace `GCLOUD_REFRESH_TOKEN` or `VIDGET_REFRESH_TOKEN` in repository secrets.
+
+If the refresh token was issued by a different OAuth client than the configured client ID
+and secret, YouTube upload will fail even when the token string looks plausible.
+
+Quick recovery:
+
+```bash
+uv sync
+uv run vidget auth login --show-refresh-token
+```

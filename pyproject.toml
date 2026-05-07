@@ -21,6 +21,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "hypothesis>=6",
+    "interrogate>=1.7",
+    "pydoc-markdown>=4.8.2",
     "pytest>=8",
     "pytest-cov>=4",
     "radon>=6",

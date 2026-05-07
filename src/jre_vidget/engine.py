@@ -176,12 +176,14 @@ def _extract_raw_info(
 
 
 def _ydl_format_for_config(config: DownloadConfig) -> str:
+    """Pick yt-dlp ``format`` selector from quality (video) or audio-only preset."""
     if config.format.is_audio_only:
         return Quality.AUDIO.ydl_format
     return config.quality.ydl_format
 
 
 def _merge_output_format(config: DownloadConfig) -> str | None:
+    """Container passed to ``merge_output_format`` after mux; ``None`` when audio-only."""
     if config.format.is_audio_only:
         return None
     if config.format in (OutputFormat.MP4, OutputFormat.MKV, OutputFormat.MOV):
@@ -190,6 +192,7 @@ def _merge_output_format(config: DownloadConfig) -> str | None:
 
 
 def _extract_audio_postprocessor(fmt: OutputFormat) -> dict[str, Any]:
+    """yt-dlp postprocessor dict for :class:`FFmpegExtractAudio` with the target codec."""
     return {
         "key": "FFmpegExtractAudio",
         "preferredcodec": fmt.value,
@@ -197,7 +200,9 @@ def _extract_audio_postprocessor(fmt: OutputFormat) -> dict[str, Any]:
 
 
 def _video_convert_postprocessor(fmt: OutputFormat) -> dict[str, Any]:
+    """yt-dlp postprocessor dict for :class:`FFmpegVideoConvertor` (non-mp4 containers)."""
     return {
+        # preferedformat matches yt-dlp's spelling for this postprocessor key.
         "key": "FFmpegVideoConvertor",
         "preferedformat": fmt.value,
     }
