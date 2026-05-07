@@ -82,7 +82,18 @@ export function HomePage() {
           fontSize: 14,
         }}
       >
-        Checking configuration…
+        <div style={{ marginBottom: 12 }}>Checking configuration…</div>
+        <progress
+          aria-label="Loading configuration"
+          style={{
+            width: "100%",
+            maxWidth: 320,
+            height: 8,
+            margin: "0 auto",
+            display: "block",
+            accentColor: "#185FA5",
+          }}
+        />
       </div>
     );
   }

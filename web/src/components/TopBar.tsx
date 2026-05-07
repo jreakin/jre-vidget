@@ -33,7 +33,7 @@ export function TopBar({ onClearPAT }: TopBarProps) {
         <div>
           <div style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.2 }}>{title}</div>
           <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", lineHeight: 1.2 }}>
-            powered by vidget
+            Powered By Abstract Data
           </div>
         </div>
       </div>

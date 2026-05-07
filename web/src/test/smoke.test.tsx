@@ -37,7 +37,7 @@ describe("web smoke", () => {
   it("TopBar renders branding and clear action", () => {
     const onClear = vi.fn();
     render(<TopBar onClearPAT={onClear} />);
-    expect(screen.getByText(/powered by vidget/i)).toBeInTheDocument();
+    expect(screen.getByText(/powered by abstract data/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
   });
 });
